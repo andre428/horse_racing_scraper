@@ -1,58 +1,69 @@
-"""
-Django management command to run the scraper.
-
-Usage:
-    python manage.py scrape 3    # Scrape last 3 days
-    python manage.py scrape 1    # Scrape last 1 day (today + yesterday)
-"""
-
+# management/commands/scrape_races.py
 from django.core.management.base import BaseCommand
-
 from scraper.service import ScraperService
+from django.utils import timezone
+from api.models import ScrapeJob
 
 
 class Command(BaseCommand):
-    help = "Scrape horse racing data for the last N days"
+    help = 'Scrape race data for specified date range'
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "days_back",
-            type=int,
-            help="Number of days back to scrape (0 = today only, 1 = today + yesterday, etc.)",
-        )
-        parser.add_argument(
-            "--output-csv",
-            type=str,
-            help="Optional path to CSV file for results export",
-        )
+        parser.add_argument('--days-back', type=int, default=7)
+        parser.add_argument('--course', type=str, default=None)
+        parser.add_argument('--verbose', action='store_true')
 
     def handle(self, *args, **options):
-        days_back = options["days_back"]
-        output_csv = options.get("output_csv")
+        days_back = options['days_back']
+        course = options['course']
+        verbose = options['verbose']
 
-        if days_back < 0:
-            self.stdout.write(
-                self.style.ERROR("days_back must be >= 0")
-            )
-            return
-
-        self.stdout.write(
-            self.style.SUCCESS(f"Starting scraper for last {days_back} days...")
+        # Create the job record
+        job = ScrapeJob.objects.create(
+            job_id=f"cmd_{timezone.now().timestamp()}",
+            status="running"
         )
 
-        service = ScraperService(enable_logging=True)
-        result = service.scrape_days_back(days_back=days_back, output_csv=output_csv)
+        # Progress callback for console output
+        def progress_callback(event, data):
+            if verbose:
+                self.stdout.write(
+                    self.style.SUCCESS(f"[{event}] {data}")
+                )
+            job.add_log(event, data)
 
+        # Build filters
+        filters = {}
+        if course:
+            filters["courses"] = [course]
+
+        # Run scraper
+        self.stdout.write(f"Starting scrape: {days_back} days back")
+
+        service = ScraperService(
+            enable_logging=verbose,
+            progress_callback=progress_callback
+        )
+
+        result = service.scrape_days_back(
+            days_back=days_back,
+            filters=filters if filters else None
+        )
+
+        # Update job
+        job.status = "completed" if result["success"] else "failed"
+        job.stats = result["stats"]
+        job.completed_at = timezone.now()
+        job.save()
+
+        # Output summary
         if result["success"]:
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"✓ Scraping completed successfully!\n"
-                    f"  Fixtures: {result['stats']['fixtures_count']}\n"
-                    f"  Races: {result['stats']['races_count']}\n"
-                    f"  Results: {result['stats']['results_count']}"
+                    f"✓ Scrape complete: {result['stats']['races_saved']} races"
                 )
             )
         else:
             self.stdout.write(
-                self.style.ERROR(f"✗ Scraping failed: {result['error']}")
+                self.style.ERROR(f"✗ Scrape failed: {result['error']}")
             )

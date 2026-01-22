@@ -1,7 +1,5 @@
 """
 Step 3: Fetch race results.
-
-Fetches race performances and updates horse_count for each race.
 """
 
 from datetime import datetime
@@ -34,6 +32,9 @@ def fetch_results_for_races(token_manager: TokenManager, limit: int = 100, filte
         "races_completed": 0,
     }
 
+    if not races:
+        return stats
+
     for race in races:
         stats["races_checked"] += 1
 
@@ -49,13 +50,13 @@ def fetch_results_for_races(token_manager: TokenManager, limit: int = 100, filte
             response = fetch_json(url, token)
 
             raw_performances = response.get("data", [])
-            
+
             performances = [transform_performance(p, race_id) for p in raw_performances]
 
             if performances:
                 save_performances(performances)
                 stats["results_saved"] += len(performances)
-                
+
                 # Update horse count for this race
                 update_horse_count(race_id, len(performances))
 
@@ -146,6 +147,10 @@ def update_horse_count(race_id, count):
     """Update horse_count for a race after saving performances."""
     with get_connection() as conn:
         conn.execute(
-            "UPDATE races SET horse_count = ? WHERE race_id = ?",
+            """
+            UPDATE races 
+            SET horse_count = ?
+            WHERE race_id = ?
+            """,
             (count, race_id)
         )

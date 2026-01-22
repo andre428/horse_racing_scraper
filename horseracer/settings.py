@@ -1,12 +1,11 @@
 """
 Django settings for horseracer project.
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -19,7 +18,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -29,7 +27,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Your apps
     "api",
 ]
 
@@ -63,15 +60,36 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "horseracer.wsgi.application"
 
-
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# Ensure local DB directories exist (safe for local dev)
+(BASE_DIR / "cache").mkdir(parents=True, exist_ok=True)
+(BASE_DIR / "main_db").mkdir(parents=True, exist_ok=True)
+
+# Scraper staging DB path (shared contract with scraper package)
+SCRAPER_DB_PATH = Path(
+    os.environ.get("SCRAPER_DB_PATH", str(BASE_DIR / "cache" / "scraper_dump.db"))
+)
+
+# Django main DB path (local default)
+DJANGO_DB_PATH = Path(
+    os.environ.get("DJANGO_DB_NAME", str(BASE_DIR / "main_db" / "django_main.db"))
+)
+
 DATABASES = {
     "default": {
+        "ENGINE": os.environ.get("DJANGO_DB_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": str(DJANGO_DB_PATH),
+        "USER": os.environ.get("DJANGO_DB_USER", ""),
+        "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", ""),
+        "HOST": os.environ.get("DJANGO_DB_HOST", ""),
+        "PORT": os.environ.get("DJANGO_DB_PORT", ""),
+    },
+    "scraper": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+        "NAME": str(SCRAPER_DB_PATH),
+    },
 }
 
 # Note: Your scraper uses a separate SQLite database (scraper.db)
@@ -96,7 +114,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
@@ -108,7 +125,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
@@ -118,7 +134,3 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Scraper configuration
-# Path to scraper database (separate from Django database)
-SCRAPER_DB_PATH = BASE_DIR / "scraper.db"

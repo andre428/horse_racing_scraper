@@ -1,0 +1,162 @@
+{% extends "api/base.html" %}
+
+{% block title %}Race Scraper - Start New Job{% endblock %}
+
+{% block content %}
+<h1>🏇 Horse Racing Data Scraper</h1>
+
+<form id="scrape-form">
+    <div class="form-group">
+        <label for="days-back">Days to Scrape (0 = today only):</label>
+        <input
+                type="number"
+                id="days-back"
+                name="days_back"
+                min="0"
+                max="365"
+                value="7"
+                required
+        >
+        <small style="color: #666; display: block; margin-top: 5px;">
+            Example: 7 = last 7 days, 30 = last month
+        </small>
+    </div>
+
+    <button type="submit" id="submit-btn">Start Scraping</button>
+</form>
+
+<div id="status" class="status"></div>
+
+<div id="progress-container" style="display: none;">
+    <div class="progress">
+        <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill" style="width: 0%;">0%</div>
+        </div>
+        <div id="progress-details" style="margin-top: 10px; color: #666;"></div>
+    </div>
+</div>
+
+<div class="jobs-list">
+    <h2>Recent Jobs</h2>
+    {% if recent_jobs %}
+    {% for job in recent_jobs %}
+    <div class="job-item">
+        <div>
+            <span class="job-status status-{{ job.status }}">{{ job.status|upper }}</span>
+            <strong>{{ job.days_back }} days</strong>
+            <span style="color: #666; font-size: 14px;">
+                    | {{ job.created_at|date:"Y-m-d H:i" }}
+                </span>
+        </div>
+        {% if job.stats %}
+        <div style="margin-top: 8px; font-size: 14px; color: #666;">
+            Fixtures: {{ job.stats.fixtures_saved|default:0 }} |
+            Races: {{ job.stats.races_saved|default:0 }} |
+            Performances: {{ job.stats.performances_saved|default:0 }}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="color: #666;">No jobs yet. Start your first scrape above!</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const form = document.getElementById('scrape-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const statusDiv = document.getElementById('status');
+    const progressContainer = document.getElementById('progress-container');
+    const progressFill = document.getElementById('progress-fill');
+    const progressDetails = document.getElementById('progress-details');
+
+    let pollInterval = null;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const daysBack = parseInt(document.getElementById('days-back').value);
+
+        // Disable form
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Starting...';
+
+        // Show status
+        statusDiv.className = 'status info';
+        statusDiv.style.display = 'block';
+        statusDiv.textContent = `Starting scrape for ${daysBack} days...`;
+
+        try {
+            // Start scrape
+            const response = await fetch('/scrape/start/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({days_back: daysBack})
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to start scrape');
+            }
+
+            // Show progress
+            progressContainer.style.display = 'block';
+            statusDiv.textContent = `Job started! ID: ${data.job_id}`;
+
+            // Poll for progress
+            pollProgress(data.job_id);
+
+        } catch (error) {
+            statusDiv.className = 'status error';
+            statusDiv.textContent = `Error: ${error.message}`;
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Start Scraping';
+        }
+    });
+
+    async function pollProgress(jobId) {
+        pollInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/scrape/status/${jobId}/`);
+                const job = await response.json();
+
+                // Update progress bar
+                const progress = (job.current_step / job.total_steps) * 100;
+                progressFill.style.width = `${progress}%`;
+                progressFill.textContent = `${Math.round(progress)}%`;
+
+                // Update details
+                const details = [];
+                if (job.stats.fixtures_saved) details.push(`Fixtures: ${job.stats.fixtures_saved}`);
+                if (job.stats.races_saved) details.push(`Races: ${job.stats.races_saved}`);
+                if (job.stats.performances_saved) details.push(`Performances: ${job.stats.performances_saved}`);
+                progressDetails.textContent = details.join(' | ');
+
+                // Check if completed
+                if (job.status === 'completed') {
+                    clearInterval(pollInterval);
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = `✓ Scrape completed! ${details.join(', ')}`;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Start Scraping';
+
+                    // Reload page after 2 seconds to show in recent jobs
+                    setTimeout(() => location.reload(), 2000);
+                } else if (job.status === 'failed') {
+                    clearInterval(pollInterval);
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `✗ Scrape failed: ${job.error_message}`;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Start Scraping';
+                }
+
+            } catch (error) {
+                console.error('Error polling status:', error);
+            }
+        }, 1000);  // Poll every second
+    }
+</script>
+{% endblock %}

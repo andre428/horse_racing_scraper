@@ -6,7 +6,7 @@ Step 2: Fetch races for fixtures.
 from datetime import datetime
 from typing import Any
 
-from .config import API_BASE, MAX_RETRIES
+from .config import API_BASE
 from .db_tool import (
     get_connection,
     get_unprocessed_fixtures,
@@ -84,7 +84,7 @@ def fetch_races_for_fixtures(token_manager: TokenManager, limit: int = 50, filte
                         "fetched_at": datetime.now().isoformat(timespec="seconds"),
                         "processed": 0,
                         "sectioned": 0,
-                        "horse_count": 9,
+                        "horse_count": 0,
                     }
                 )
             if races:
@@ -110,7 +110,7 @@ def fetch_races_for_fixtures(token_manager: TokenManager, limit: int = 50, filte
 
 
 def save_races(races: list[dict[str, Any]]) -> None:
-    """Save races to DB with fixture_id reference."""
+    """Save races to DB with a fixture_id reference."""
     if not races:
         return
 

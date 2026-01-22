@@ -3,6 +3,7 @@ Configuration constants used across the scraper.
 
 """
 
+import os
 from pathlib import Path
 
 # Base headers used for requests (can be extended per-request)
@@ -47,7 +48,8 @@ API_ADD: dict[str, str] = {
 # Cache and token management
 DEFAULT_CACHE_DIR = Path("cache")
 TOKEN_FILE = Path(f"{DEFAULT_CACHE_DIR}/token.json")
-DB_PATH = Path(f"{DEFAULT_CACHE_DIR}/scraper_dump.db")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DB_PATH = os.getenv("SCRAPER_DB_PATH", str(PROJECT_ROOT / "cache" / "scraper_dump.db"))
 REQUEST_TIMEOUT: int = 15
 MAX_RETRIES: int = 3
 BACKOFF_FACTOR: int = 2

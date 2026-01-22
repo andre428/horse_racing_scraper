@@ -12,6 +12,8 @@ from .http_ops import fetch_json
 from .token_manager import TokenManager
 
 
+# TODO - add filters keyword!
+
 def fetch_horse_profiles(token_manager: TokenManager, limit: int = 100) -> dict[str, int]:
     """
     Fetch profiles for horses not yet in database.
@@ -129,4 +131,3 @@ def save_horses(horses: list[dict[str, str | int]]) -> None:
                 for h in horses
             ],
         )
-

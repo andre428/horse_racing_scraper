@@ -3,11 +3,11 @@ requires = ["hatchling >= 1.28.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "Horse Racing Data Mixer"
-version = "0.3.0"
+name = "horse-racing-data-mixer"
+version = "0.6.0"
 description = "Horse racing data scraper with Django integration"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [
     { name = "zaafiel428", email = "rzuckasto@gmail.com" },
@@ -17,48 +17,55 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Framework :: Django :: 5.0",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 
-# Core dependencies for scraping
+# Core dependencies - Django-based application
 dependencies = [
-    "playwright>=1.57.0",
+    "django>=5.2.9,<6.0",
+    "psycopg2-binary>=2.9.10",
     "requests>=2.32.5",
-    "beautifulsoup4 >=4.14.3",
+    "playwright>=1.57.0",
 ]
 
 [project.optional-dependencies]
-# Django integration (optional - for when you deploy with Django)
-django = [
-    "django>=5.2.9",
-    "psycopg2-binary>=2.9.10", # PostgreSQL adapter
-]
-
-# Development tools
+# Development & testing
 dev = [
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
-    "pytest-mock>=3.15.1",
-    "pytest-cov>=7.0.0",
-    "pytest-django>=4.11.0",
-    "ruff >= 0.14.9",
-    "basedpyright>=1.36.0",
-    "ipython>=9.8.0", # Better REPL
+    "pytest>=9.0",
+    "pytest-django>=4.11",
+    "pytest-asyncio>=1.3",
+    "pytest-cov>=7.0",
+    "ruff>=0.14",
+    "basedpyright>=1.36",
+    "ipython>=9.8",
+    "django-debug-toolbar>=4.4",
+    "django-extensions>=3.2",
 ]
 
-# All extras for complete dev environment
-all = [
-    "koniki-scraper[django,dev]",
+# HTML parsing (only if you actually need it)
+html = [
+    "beautifulsoup4>=4.14",
+    "lxml>=5.0",
+]
+
+# Background jobs (optional architecture)
+celery = [
+    "celery>=5.4",
+]
+
+# Production deployment helpers
+prod = [
+    "gunicorn>=23.0",
+    "whitenoise>=6.8",
+    "sentry-sdk>=2.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/yourusername/koniki-scraper"
-Documentation = "https://github.com/yourusername/koniki-scraper#readme"
 Repository = "https://github.com/yourusername/koniki-scraper"
-Issues = "https://github.com/yourusername/koniki-scraper/issues"
 
 # ============================================================================
 # Hatchling Configuration
@@ -116,9 +123,9 @@ select = [
 ]
 
 ignore = [
-    "E501", # Line too long (formatter handles)
-    "S101", # Assert usage (OK in tests)
-    "T201", # Print statements (OK for now, migrate to logging later)
+    "E501",
+    "S101",
+    "T201",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -151,7 +158,7 @@ max-complexity = 10
 # Basedpyright Configuration
 # ============================================================================
 [tool.basedpyright]
-pythonVersion = "3.13"  # Minimum supported
+pythonVersion = "3.14"  # Minimum supported
 typeCheckingMode = "standard"
 
 # Include patterns
@@ -185,10 +192,10 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 addopts = [
-    "-ra", # Show summary of all test outcomes
-    "--strict-markers", # Error on unknown markers
-    "--strict-config", # Error on config issues
-    "-v", # Verbose output
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "-v",
 ]
 
 markers = [

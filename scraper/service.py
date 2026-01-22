@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Any
 
+from collections.abc import Callable
 from .step1_fixtures import fetch_fixtures_range
 from .step2_races import fetch_races_for_fixtures
 from .step3_results import fetch_results_for_races
@@ -16,21 +17,25 @@ from .utils import info, warn
 
 class ScraperService:
     """
-    Production-grade service for orchestrating multi-step scraping.
+    Production-grade service for orchestrating multistep scraping.
 
     Handles token management, progress tracking, and error recovery.
     """
 
-    def __init__(self, enable_logging: bool = True, rate_limit_seconds: int = 2):
+    def __init__(self, enable_logging: bool = True, rate_limit_seconds: int = 2,
+                 progress_callback: Callable[[str, dict], None] | None = None
+                 ):
         """
         Initialize the scraper service.
 
         Args:
             enable_logging: If True, log progress messages
             rate_limit_seconds: Number of seconds to wait between API calls
+            progress_callback: Optional callback for progress updates
         """
         self.enable_logging = enable_logging
         self.rate_limit_seconds = rate_limit_seconds
+        self.progress_callback = progress_callback
         self._log = info if enable_logging else lambda x: None
         self._warn = warn if enable_logging else lambda x: None
 
@@ -54,7 +59,7 @@ class ScraperService:
         """
         Validate and normalize filter configuration.
 
-        FIXED: Made static method since it doesn't use instance state.
+        FIXED: Made a static method since it doesn't use instance state.
 
         Args:
             filters: Optional filter dictionary
@@ -192,6 +197,11 @@ class ScraperService:
                     "stats": stats,
                     "error": None,
                 }
+            self._report_progress("step_completed", {
+                "step": 1,
+                "name": "fixtures",
+                "count": stats["fixtures_saved"]
+            })
 
             # STEP 2: Fetch races (batched with filters)
             self._log("\n" + "=" * 60)
@@ -220,6 +230,11 @@ class ScraperService:
                     "stats": stats,
                     "error": None,
                 }
+            self._report_progress("step_completed", {
+                "step": 2,
+                "name": "races",
+                "count": stats["races_saved"]
+            })
 
             # STEP 3: Fetch results (batched)
             self._log("\n" + "=" * 60)
@@ -241,6 +256,11 @@ class ScraperService:
             stats["performances_saved"] = results_result["results_saved"]
             stats["races_completed"] = results_result["races_completed"]
             self._log(f"✓ Step 3 complete: {stats['performances_saved']} performances saved")
+            self._report_progress("step_completed", {
+                "step": 3,
+                "name": "results",
+                "count": stats["performances_saved"]
+            })
 
             # STEP 4: Fetch horse profiles (optional, batched)
             if run_horses:
@@ -254,11 +274,17 @@ class ScraperService:
 
                 stats["horses_saved"] = horses_result.get("horses_saved", 0)
                 self._log(f"✓ Step 4 complete: {stats['horses_saved']} horses saved")
+                self._report_progress("step_completed", {
+                    "step": 4,
+                    "name": "horses",
+                    "count": stats["horses_saved"]
+                })
 
             # Final summary
             self._log("\n" + "=" * 60)
             self._log("WORKFLOW COMPLETE")
             self._log("=" * 60)
+            self._report_progress("workflow_completed", stats)
             self._log_summary(stats)
 
             return {
@@ -427,7 +453,8 @@ class ScraperService:
         self._log(f"Scraping {len(dates)} days: {dates[0]} to {dates[-1]}")
         return self.scrape_date_range(dates=dates, **kwargs)
 
-    def get_progress(self) -> dict[str, Any]:
+    @staticmethod
+    def get_progress() -> dict[str, Any]:
         """
         Get current scraping progress from database.
         """
@@ -435,3 +462,8 @@ class ScraperService:
             stats = get_scraping_stats(conn)
 
         return stats
+
+    def _report_progress(self, event: str, data: dict) -> None:
+        """Callback for progress updates if provided."""
+        if self.progress_callback:
+            self.progress_callback(event, data)

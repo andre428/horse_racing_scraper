@@ -47,7 +47,7 @@ def fetch_fixtures_range(token_manager: TokenManager, start_date: str | None = N
                 print(f"[fetch_fixtures] Invalid response type: {type(payload)}")
                 continue
 
-            fixtures_list = payload.get("data") or payload.get("fixtures") or []
+            fixtures_list = payload.get("data") or []
 
             if not isinstance(fixtures_list, list):
                 print(f"[fetch_fixtures] Invalid fixtures_list type: {type(fixtures_list)}")
@@ -98,11 +98,8 @@ def fetch_fixtures_range(token_manager: TokenManager, start_date: str | None = N
         except RuntimeError as e:
             # Handle 401 - token expired
             if "401" in str(e):
-                print("[fetch_fixtures] Token expired, refreshing...")
                 try:
                     token_manager.refresh_token()
-                    # Retry this month
-                    # (Could make this more sophisticated)
                 except Exception as refresh_error:
                     print(f"[fetch_fixtures] Token refresh failed: {refresh_error}")
             else:

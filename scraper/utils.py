@@ -7,6 +7,7 @@ Provides:
 """
 
 from datetime import datetime, timedelta
+import logging
 
 
 def date_range(start: str, end: str):
@@ -21,11 +22,14 @@ def date_range(start: str, end: str):
         d = d + timedelta(days=1)
 
 
+logger = logging.getLogger("scraper")
+
+
 def info(msg: str) -> None:
     """Simple info logging"""
-    print(f"[INFO] {msg}")
+    logger.info(f"[INFO] {msg}")
 
 
 def warn(msg: str) -> None:
     """Simple warning logging"""
-    print(f"[WARN] {msg}")
+    logger.warning(f"[WARN] {msg}")
