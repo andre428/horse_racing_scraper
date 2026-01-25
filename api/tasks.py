@@ -3,6 +3,7 @@ Background task for running scraper.
 
 Uses threading for simplicity. For production, use Celery.
 """
+
 import threading
 import uuid
 
@@ -10,6 +11,7 @@ from django.db import close_old_connections
 from django.utils import timezone
 
 from scraper.service import ScraperService
+
 from .models import ScrapeJob
 from .sync import sync_scraper_to_django
 
@@ -82,3 +84,4 @@ def start_scrape_job(days_back: int, filters: dict = None) -> str:
     ).start()
 
     return new_job_id
+

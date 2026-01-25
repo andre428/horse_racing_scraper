@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "horse-racing-data-mixer"
-version = "0.6.0"
+version = "0.6.5"
 description = "Horse racing data scraper with Django integration"
 readme = "README.md"
 requires-python = ">=3.14"

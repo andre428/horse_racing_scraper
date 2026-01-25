@@ -24,7 +24,8 @@ Pipeline Complete: After this step, all data is ready for Django import
 """
 
 import re
-from datetime import datetime, timedelta
+
+from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
@@ -52,7 +53,13 @@ def fetch_sectionals(limit: int = 50):
 
     if not races:
         print("[DONE] No races to match sectionals")
-    pass
+        return stats
+
+    for race in races:
+        stats["races_checked"] += 1
+
+        # Check if sectional times already present
+        if race["sectional_times"]:
 
 
 def _format_date_for_atr(race_date: str) -> str:

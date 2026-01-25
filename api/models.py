@@ -7,19 +7,18 @@ or keep using the scraper's SQLite database (scraper.db) as a buffer.
 
 from django.db import models
 
-
 class ScrapeJob(models.Model):
     """Track scraping jobs and their progress."""
 
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('running', 'Running'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
+        ("pending", "Pending"),
+        ("running", "Running"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
     ]
 
     job_id = models.CharField(max_length=100, unique=True, db_index=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
 
     # Parameters
     days_back = models.IntegerField()
@@ -39,10 +38,10 @@ class ScrapeJob(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['-created_at']),
-            models.Index(fields=['status']),
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["status"]),
         ]
 
     def __str__(self):
@@ -64,44 +63,53 @@ class ScrapeJob(models.Model):
             self.stats = merged
         self.save(update_fields=["current_step", "stats"])
 
-
 # --- Django-owned canonical storage (main DB) ---
 
 class Fixture(models.Model):
     source = models.CharField(max_length=50, default="bhra")
-    external_id = models.CharField(max_length=128, unique=True, db_index=True)  # fixture_id as string
+    external_id = models.CharField(
+        max_length=128, unique=True, db_index=True
+    )  # fixture_id as string
     date = models.DateField(null=True, blank=True)
     raw = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-
 class Race(models.Model):
     source = models.CharField(max_length=50, default="bhra")
-    external_id = models.CharField(max_length=128, unique=True, db_index=True)  # f"{race_id}:{division_sequence}"
-    fixture = models.ForeignKey(Fixture, null=True, blank=True, on_delete=models.SET_NULL, related_name="races")
+    external_id = models.CharField(
+        max_length=128, unique=True, db_index=True
+    )  # f"{race_id}:{division_sequence}"
+    fixture = models.ForeignKey(
+        Fixture, null=True, blank=True, on_delete=models.SET_NULL, related_name="races"
+    )
     off_time = models.DateTimeField(null=True, blank=True)
     raw = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-
 class Horse(models.Model):
     source = models.CharField(max_length=50, default="bhra")
-    external_id = models.CharField(max_length=128, unique=True, db_index=True)  # animal_id as string
+    external_id = models.CharField(
+        max_length=128, unique=True, db_index=True
+    )  # animal_id as string
     name = models.CharField(max_length=255, blank=True, default="")
     dob = models.DateField(null=True, blank=True)
     raw = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-
 class Performance(models.Model):
     source = models.CharField(max_length=50, default="bhra")
-    external_id = models.CharField(max_length=128, unique=True,
-                                   db_index=True)  # f"{race_id}:{animal_id}:{division_sequence}"
-    race = models.ForeignKey(Race, null=True, blank=True, on_delete=models.SET_NULL, related_name="performances")
-    horse = models.ForeignKey(Horse, null=True, blank=True, on_delete=models.SET_NULL, related_name="performances")
+    external_id = models.CharField(
+        max_length=128, unique=True, db_index=True
+    )  # f"{race_id}:{animal_id}:{division_sequence}"
+    race = models.ForeignKey(
+        Race, null=True, blank=True, on_delete=models.SET_NULL, related_name="performances"
+    )
+    horse = models.ForeignKey(
+        Horse, null=True, blank=True, on_delete=models.SET_NULL, related_name="performances"
+    )
     raw = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

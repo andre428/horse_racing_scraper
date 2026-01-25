@@ -14,13 +14,14 @@ from .token_manager import TokenManager
 
 # TODO - add filters keyword!
 
-def fetch_horse_profiles(token_manager: TokenManager, limit: int = 100) -> dict[str, int]:
+def fetch_horse_profiles(token_manager: TokenManager, limit: int = 100, filters: dict = None) -> dict[str, int]:
     """
-    Fetch profiles for horses not yet in database.
+    Fetch profiles for horses not yet in the database.
 
     Args:
         token_manager: TokenManager instance
         limit: Max horses to fetch per call
+        filters: Dict with optional filtering criteria
 
     Returns:
         {
@@ -30,7 +31,17 @@ def fetch_horse_profiles(token_manager: TokenManager, limit: int = 100) -> dict[
             "horses_not_found": int
         }
     """
-    stats = {"horses_checked": 0, "horses_saved": 0, "horses_failed": 0, "horses_not_found": 0}
+
+    # Process filters - take the input but just ignore and continue
+    if filters is not None:
+        pass
+
+    stats = {
+        "horses_checked": 0,
+        "horses_saved": 0,
+        "horses_failed": 0,
+        "horses_not_found": 0
+    }
 
     # Get missing horse IDs
     with get_connection() as conn:

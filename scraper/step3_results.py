@@ -1,25 +1,5 @@
 """
-Step 3: Fetch race results and export to CSV.
-
-Given a list of race dicts (from Step 2), fetch each race result via:
-  /bha/v1/races/{year}/{race_id}/{division}/results
-
-1. Query DB for races WHERE processed = 0
-2. For each race:
-   a. Extract race_id and year from race_date
-   b. Build URL: /bha/v1/races/{year}/{race_id}/0/results
-   c. Fetch results with token
-   d. Parse performances array
-   e. Save to race_performances table (with race_id reference)
-   f. Mark race as processed = 1
-3. Return summary stats
-
-# Extract year from race_date
-year = race_date.split("-")[0]  # "2025-12-08" → "2025"
-
-# Build URL
-url = API_BASE["results"].format(year=year, race_id=race_id, division=division_sequence)
-# Result: .../bha/v1/races/2025/66431/0/results
+Step 3: Fetch race results.
 """
 
 from datetime import datetime
@@ -43,13 +23,8 @@ def fetch_results_for_races(token_manager: TokenManager, limit: int = 100, filte
             - max_distance: Maximum distance in meters
             - race_classes: List of race classes [1, 2, 3, ...]
     """
-    # Get races with filters applied
     with get_connection() as conn:
-        races = get_unprocessed_races(
-            conn,
-            limit,
-            race_filters=filters if filters else None
-        )
+        races = get_unprocessed_races(conn, limit, race_filters=filters if filters else None)
 
     stats = {
         "races_checked": 0,
@@ -57,10 +32,12 @@ def fetch_results_for_races(token_manager: TokenManager, limit: int = 100, filte
         "races_completed": 0,
     }
 
+    if not races:
+        return stats
+
     for race in races:
         stats["races_checked"] += 1
 
-        # Extract
         race_id = race["race_id"]
         race_date = race["race_date"]
         division = race["division_sequence"]
@@ -70,58 +47,62 @@ def fetch_results_for_races(token_manager: TokenManager, limit: int = 100, filte
 
         try:
             token = token_manager.get_valid_token()
-            data = fetch_json(url, token)
+            response = fetch_json(url, token)
 
-            raw_result = data.get("data") or []
+            raw_performances = response.get("data", [])
 
-            results = []
-            for result in raw_result:
-                results.append(
-                    {
-                        "race_id": result.get("raceId"),
-                        "animal_id": result.get("animalId"),
-                        "division_sequence": result.get("divisionSequence"),
-                        "result_position": result.get("resultFinishPos"),
-                        "status": result.get("status"),
-                        "horse_name": result.get("racehorseName"),
-                        "cloth_number": result.get("clothNumber"),
-                        "drawn_stall": result.get("drawnStall"),
-                        "reserve_no": result.get("reserveNoOfEntry"),
-                        "trainer_name": result.get("trainerName"),
-                        "jockey_name": result.get("jockeyName"),
-                        "sex": result.get("sex"),
-                        "age": result.get("age"),
-                        "primary_color": result.get("primaryColourDescription"),
-                        "position_time": result.get("positionFinishTime"),
-                        "is_runner": result.get("runner"),
-                        "final_position": result.get("finalPosition"),
-                        "race_criteria_type": result.get("raceCriteriaRaceType"),
-                        "finish_time": result.get("finishTime"),
-                        "fetched_at": datetime.now().isoformat(timespec="seconds"),
-                        "processed": 0,
-                    }
-                )
-            if results:
-                save_results(results, race_id)
-                stats["results_saved"] += len(results)
+            performances = [transform_performance(p, race_id) for p in raw_performances]
+
+            if performances:
+                save_performances(performances)
+                stats["results_saved"] += len(performances)
+
+                # Update horse count for this race
+                update_horse_count(race_id, len(performances))
 
             with get_connection() as conn:
                 mark_processed(conn, "races", "race_id", race_id)
             stats["races_completed"] += 1
 
-        except RuntimeError as exc:
-            if "401" in str(exc):
+        except RuntimeError as e:
+            if "401" in str(e):
                 token_manager.refresh_token()
-
-            print(f"[step3_results] Error fetching races for fixture {race_id}: {exc!s}")
+            print(f"[Step3] Failed race {race_id}: {e}")
             continue
 
     return stats
 
 
-def save_results(results: list[dict[str, str | int]], race_id: int) -> None:
-    """Save results for a race."""
-    if not results:
+def transform_performance(raw, race_id):
+    """Transform API performance data to database format."""
+    return {
+        "race_id": race_id,
+        "animal_id": raw.get("animalId"),
+        "division_sequence": raw.get("divisionSequence"),
+        "result_position": raw.get("resultFinishPos"),
+        "status": raw.get("status"),
+        "horse_name": raw.get("racehorseName"),
+        "cloth_number": raw.get("clothNumber"),
+        "drawn_stall": raw.get("drawnStall"),
+        "reserve_no": raw.get("reserveNoOfEntry"),
+        "trainer_name": raw.get("trainerName"),
+        "jockey_name": raw.get("jockeyName"),
+        "sex": raw.get("sex"),
+        "age": raw.get("age"),
+        "primary_color": raw.get("primaryColourDescription"),
+        "position_time": raw.get("positionFinishTime"),
+        "is_runner": raw.get("runner"),
+        "final_position": raw.get("finalPosition"),
+        "race_criteria_type": raw.get("raceCriteriaRaceType"),
+        "finish_time": raw.get("finishTime"),
+        "fetched_at": datetime.now().isoformat(timespec="seconds"),
+        "processed": 0,
+    }
+
+
+def save_performances(performances):
+    """Save race performances to database."""
+    if not performances:
         return
 
     with get_connection() as conn:
@@ -134,29 +115,42 @@ def save_results(results: list[dict[str, str | int]], race_id: int) -> None:
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
                 (
-                    r.get("performance_id"),  # Optional, might not be in API response
-                    race_id,  # WE pass this as parameter
-                    r["animal_id"],  # Required from API
-                    r["division_sequence"],  # From API, could be None
-                    r["result_position"],  # From API, could be None
-                    r["status"],  # From API, could be None
-                    r["horse_name"],  # From API, could be None
-                    r["cloth_number"],  # From API, could be None
-                    r["drawn_stall"],  # From API, could be None
-                    r["reserve_no"],  # From API, could be None
-                    r["trainer_name"],  # From API, could be None
-                    r["jockey_name"],  # From API, could be None
-                    r["sex"],  # FIXED: was r.get("sex,")
-                    r["age"],  # FIXED: was r.get("age,")
-                    r["primary_color"],  # From API, could be None
-                    r["position_time"],  # From API, could be None
-                    r["is_runner"],  # From API, could be None
-                    r["final_position"],  # From API, could be None
-                    r["race_criteria_type"],  # From API, could be None
-                    r["finish_time"],  # From API, could be None
-                    r["fetched_at"],  # WE set this
-                    r["processed"]  # WE set this to 0
+                    p.get("performance_id"),
+                    p["race_id"],
+                    p["animal_id"],
+                    p["division_sequence"],
+                    p["result_position"],
+                    p["status"],
+                    p["horse_name"],
+                    p["cloth_number"],
+                    p["drawn_stall"],
+                    p["reserve_no"],
+                    p["trainer_name"],
+                    p["jockey_name"],
+                    p["sex"],
+                    p["age"],
+                    p["primary_color"],
+                    p["position_time"],
+                    p["is_runner"],
+                    p["final_position"],
+                    p["race_criteria_type"],
+                    p["finish_time"],
+                    p["fetched_at"],
+                    p["processed"]
                 )
-                for r in results
+                for p in performances
             ],
+        )
+
+
+def update_horse_count(race_id, count):
+    """Update horse_count for a race after saving performances."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE races 
+            SET horse_count = ?
+            WHERE race_id = ?
+            """,
+            (count, race_id)
         )

@@ -39,7 +39,6 @@ class ScraperService:
         self._log = info if enable_logging else lambda x: None
         self._warn = warn if enable_logging else lambda x: None
 
-        # FIXED: Initialize filters attribute in __init__
         self.filters: dict[str, Any] = {}
 
         # Initialize token manager
@@ -269,7 +268,7 @@ class ScraperService:
                 self._log("=" * 60)
 
                 horses_result = self._run_batched_step(
-                    fetch_horse_profiles, batch_size["horses"], "horses"
+                    fetch_horse_profiles, batch_size["horses"], "horses", filters=self.filters
                 )
 
                 stats["horses_saved"] = horses_result.get("horses_saved", 0)

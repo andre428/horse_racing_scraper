@@ -10,7 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
-from api.models import Fixture, Race, Horse, Performance
+from api.models import Fixture, Horse, Performance, Race
 
 
 @dataclass(frozen=True)
@@ -198,7 +198,9 @@ def sync_scraper_to_django(*, limit: int | None = None) -> SyncStats:
 
             race_ext = _race_external_id(raw["race_id"], raw.get("division_sequence"))
             horse_ext = _horse_external_id(raw["animal_id"])
-            perf_ext = _performance_external_id(raw["race_id"], raw["animal_id"], raw.get("division_sequence"))
+            perf_ext = _performance_external_id(
+                raw["race_id"], raw["animal_id"], raw.get("division_sequence")
+            )
 
             race = Race.objects.filter(external_id=race_ext).first()
             horse = Horse.objects.filter(external_id=horse_ext).first()
@@ -222,3 +224,4 @@ def sync_scraper_to_django(*, limit: int | None = None) -> SyncStats:
         )
     finally:
         conn.close()
+
