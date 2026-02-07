@@ -16,8 +16,9 @@ from .db_tool import (
 from .http_ops import fetch_json
 from .token_manager import TokenManager
 
+
 def fetch_races_for_fixtures(
-    token_manager: TokenManager, limit: int = 50, filters: dict = None
+    token_manager: TokenManager, limit: int = 50, filters: dict[str, str | int] | None = None
 ) -> dict[str, int]:
     """
     Fetch races for unprocessed fixtures.
@@ -108,6 +109,7 @@ def fetch_races_for_fixtures(
             continue
 
     return stats
+
 
 def save_races(races: list[dict[str, Any]]) -> None:
     """Save races to DB with a fixture_id reference."""

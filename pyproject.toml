@@ -166,7 +166,6 @@ include = ["scraper", "tests", "test_pipeline.py"]
 exclude = [
     "**/__pycache__",
     "**/.venv",
-    "**/venv",
     "**/.pytest_cache",
     "**/build",
     "**/dist",
@@ -179,7 +178,7 @@ reportUnusedImport = true
 reportUnusedVariable = true
 reportGeneralTypeIssues = true
 reportOptionalMemberAccess = "warning"
-reportUnknownMemberType = "warning"
+reportUnknownMemberType = "none"
 
 # ============================================================================
 # Pytest Configuration

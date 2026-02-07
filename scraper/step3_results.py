@@ -9,8 +9,9 @@ from .db_tool import get_connection, get_unprocessed_races, mark_processed
 from .http_ops import fetch_json
 from .token_manager import TokenManager
 
-
-def fetch_results_for_races(token_manager: TokenManager, limit: int = 100, filters: dict = None) -> dict[str, int]:
+def fetch_results_for_races(
+    token_manager: TokenManager, limit: int = 100, filters: dict = None
+) -> dict[str, int]:
     """
     Query for races needing results.
 
@@ -72,7 +73,6 @@ def fetch_results_for_races(token_manager: TokenManager, limit: int = 100, filte
 
     return stats
 
-
 def transform_performance(raw, race_id):
     """Transform API performance data to database format."""
     return {
@@ -98,7 +98,6 @@ def transform_performance(raw, race_id):
         "fetched_at": datetime.now().isoformat(timespec="seconds"),
         "processed": 0,
     }
-
 
 def save_performances(performances):
     """Save race performances to database."""
@@ -136,21 +135,21 @@ def save_performances(performances):
                     p["race_criteria_type"],
                     p["finish_time"],
                     p["fetched_at"],
-                    p["processed"]
+                    p["processed"],
                 )
                 for p in performances
             ],
         )
-
 
 def update_horse_count(race_id, count):
     """Update horse_count for a race after saving performances."""
     with get_connection() as conn:
         conn.execute(
             """
-            UPDATE races 
+            UPDATE races
             SET horse_count = ?
             WHERE race_id = ?
             """,
-            (count, race_id)
+            (count, race_id),
         )
+

@@ -7,6 +7,7 @@ or keep using the scraper's SQLite database (scraper.db) as a buffer.
 
 from django.db import models
 
+
 class ScrapeJob(models.Model):
     """Track scraping jobs and their progress."""
 
@@ -63,7 +64,9 @@ class ScrapeJob(models.Model):
             self.stats = merged
         self.save(update_fields=["current_step", "stats"])
 
+
 # --- Django-owned canonical storage (main DB) ---
+
 
 class Fixture(models.Model):
     source = models.CharField(max_length=50, default="bhra")
@@ -74,6 +77,7 @@ class Fixture(models.Model):
     raw = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
 
 class Race(models.Model):
     source = models.CharField(max_length=50, default="bhra")
@@ -88,6 +92,7 @@ class Race(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+
 class Horse(models.Model):
     source = models.CharField(max_length=50, default="bhra")
     external_id = models.CharField(
@@ -98,6 +103,7 @@ class Horse(models.Model):
     raw = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
 
 class Performance(models.Model):
     source = models.CharField(max_length=50, default="bhra")
