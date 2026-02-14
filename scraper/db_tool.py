@@ -242,8 +242,8 @@ def get_unprocessed_races(
         limit: Max races to return
         race_filters: Optional dict with keys:
             - race_type: "FLAT" or "JUMP"
-            - min_distance: Minimum distance in yards
-            - max_distance: Maximum distance in yards
+            - minimum_distance: Minimum distance in yards
+            - maximum_distance: Maximum distance in yards
             - race_classes: List of race classes [1, 2, 3, etc.]
 
     Returns:
@@ -257,13 +257,13 @@ def get_unprocessed_races(
             query += " AND race_criteria_type = ?"
             params.append(race_filters["race_type"])
 
-        if race_filters.get("min_distance"):
+        if race_filters.get("minimum_distance"):
             query += " AND distance_value >= ?"
-            params.append(race_filters["min_distance"])
+            params.append(race_filters["minimum_distance"])
 
-        if race_filters.get("max_distance"):
+        if race_filters.get("maximum_distance"):
             query += " AND distance_value <= ?"
-            params.append(race_filters["max_distance"])
+            params.append(race_filters["maximum_distance"])
 
         if race_filters.get("race_classes"):
             placeholders = ','.join('?' * len(race_filters["race_classes"]))

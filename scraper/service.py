@@ -97,15 +97,15 @@ class ScraperService:
                 raise ValueError("race_type must be 'FLAT' or 'JUMP'")
             valid_filters["race_type"] = filters["race_type"]
 
-        if "min_distance" in filters:
-            if not isinstance(filters["min_distance"], int) or filters["min_distance"] < 0:
-                raise ValueError("min_distance must be a positive integer")
-            valid_filters["min_distance"] = filters["min_distance"]
+        if "minimum_distance" in filters:
+            if not isinstance(filters["minimum_distance"], int) or filters["minimum_distance"] < 0:
+                raise ValueError("minimum_distance must be a positive integer")
+            valid_filters["minimum_distance"] = filters["minimum_distance"]
 
-        if "max_distance" in filters:
-            if not isinstance(filters["max_distance"], int) or filters["max_distance"] < 0:
-                raise ValueError("max_distance must be a positive integer")
-            valid_filters["max_distance"] = filters["max_distance"]
+        if "maximum_distance" in filters:
+            if not isinstance(filters["maximum_distance"], int) or filters["maximum_distance"] < 0:
+                raise ValueError("maximum_distance must be a positive integer")
+            valid_filters["maximum_distance"] = filters["maximum_distance"]
 
         if "race_classes" in filters:
             classes = filters["race_classes"]
@@ -240,9 +240,9 @@ class ScraperService:
             self._log("STEP 3: Fetching results for races")
             if self.filters.get("race_type"):
                 self._log(f"  Filtering: race_type={self.filters['race_type']}")
-            if self.filters.get("min_distance") or self.filters.get("max_distance"):
+            if self.filters.get("minimum_distance") or self.filters.get("maximum_distance"):
                 self._log(
-                    f"  Filtering: distance={self.filters.get('min_distance')}-{self.filters.get('max_distance')}m")
+                    f"  Filtering: distance={self.filters.get('minimum_distance')}-{self.filters.get('maximum_distance')}m")
             self._log("=" * 60)
 
             results_result = self._run_batched_step(

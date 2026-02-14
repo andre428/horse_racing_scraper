@@ -11,7 +11,9 @@ app_name = "api"
 urlpatterns = [
     path("", views.index, name="index"),
     path("scrape/start/", views.start_scrape, name="start_scrape"),
+    path("scrape/stop/<str:job_id>/", views.stop_scrape, name="stop_scrape"),  # NEW
     path("scrape/status/<str:job_id>/", views.job_status, name="job_status"),
     path("scrape/jobs/", views.job_list, name="job_list"),
+    path("preset/<int:preset_id>/", views.get_preset, name="get_preset"),
+    path("preset/save/", views.save_preset, name="save_preset"),
 ]
-

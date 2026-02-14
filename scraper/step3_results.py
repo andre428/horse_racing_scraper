@@ -20,8 +20,8 @@ def fetch_results_for_races(
         limit: Max races to process per call
         filters: Dict with optional keys:
             - race_type: "FLAT" or "JUMP"
-            - min_distance: Minimum distance in meters
-            - max_distance: Maximum distance in meters
+            - minimum_distance: Minimum distance in meters
+            - maximum_distance: Maximum distance in meters
             - race_classes: List of race classes [1, 2, 3, ...]
     """
     with get_connection() as conn:

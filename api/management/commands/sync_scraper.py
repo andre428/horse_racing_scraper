@@ -8,7 +8,9 @@ class Command(BaseCommand):
     help = "Sync data from scraper staging SQLite DB into Django main DB"
 
     def add_arguments(self, parser):
-        parser.add_argument("--limit", type=int, default=None, help="Limit rows per table (debug)")
+        parser.add_argument(
+            "--limit", type=int, default=None, help="Limit rows per table (debug)"
+        )
 
     def handle(self, *args, **options):
         self.stdout.write(f"Scraper DB: {settings.SCRAPER_DB_PATH}")
