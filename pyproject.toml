@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "horse-racing-data-mixer"
-version = "0.7.1"
+version = "0.8.10"
 description = "Horse racing data scraper with Django integration"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -148,7 +148,7 @@ section-order = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-skip-magic-trailing-comma = false
+skip-magic-trailing-comma = true
 line-ending = "auto"
 
 [tool.ruff.lint.mccabe]
@@ -179,6 +179,15 @@ reportUnusedVariable = true
 reportGeneralTypeIssues = true
 reportOptionalMemberAccess = "warning"
 reportUnknownMemberType = "none"
+
+# ============================================================================
+# MyPy & Django Stubs Configuration
+# ===========================================================
+[tool.mypy]
+plugins = ["mypy_django_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "horseracer.settings"
 
 # ============================================================================
 # Pytest Configuration

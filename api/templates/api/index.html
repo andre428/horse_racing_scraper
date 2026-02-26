@@ -1,26 +1,53 @@
 {% extends "api/base.html" %}
 {% load static %}
 
-{% block title %}Skaner Wyścigów - Zaawansowane Filtry{% endblock %}
+{% block title %}Skaner Wyścigów - Racing Data Hub{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <div class="breadcrumbs-container">
+        <ul class="breadcrumbs-list">
+            <li class="breadcrumb-item active">
+                <i class="fas fa-home"></i> Skaner Danych
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
 
 {% block content %}
-<h1>🏇 Skaner Danych Wyścigów Konnych</h1>
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-horse-head"></i>
+        Skaner Danych Wyścigów Konnych
+    </h1>
+    <p class="text-muted">Pobieraj i importuj dane wyścigowe z wybranego zakresu dat i filtrami</p>
+</div>
 
 <!-- Preset Selector -->
-<div class="form-section">
-    <h3>Szybki Start: Załaduj Preset</h3>
-    <select id="preset-selector" class="form-control">
-        <option value="">-- Wybierz preset --</option>
-        {% for preset in presets %}
-        <option value="{{ preset.id }}">
-            {{ preset.name }}
-            {% if preset.description %} - {{ preset.description }}{% endif %}
-        </option>
-        {% endfor %}
-    </select>
-    <small style="color: #666; display: block; margin-top: 5px;">
-        Lub skonfiguruj filtry ręcznie poniżej
-    </small>
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-star"></i>
+            Szybki Start
+        </h2>
+    </div>
+    <div class="form-group">
+        <label class="form-label">
+            <i class="fas fa-list"></i>
+            Wybierz preset
+        </label>
+        <select id="preset-selector" class="form-control">
+            <option value="">-- Wybierz gotową konfigurację --</option>
+            {% for preset in presets %}
+            <option value="{{ preset.id }}">
+                {{ preset.name }}
+                {% if preset.description %} - {{ preset.description }}{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+        <small class="form-hint">Lub skonfiguruj filtry ręcznie poniżej</small>
+    </div>
 </div>
 
 <!-- Main Form -->
@@ -28,10 +55,18 @@
     {% csrf_token %}
 
     <!-- Days Back -->
-    <div class="form-section">
-        <h3>Zakres Dat</h3>
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-calendar-days"></i>
+                Zakres Dat
+            </h2>
+        </div>
         <div class="form-group">
-            <label for="days-back">Dni do pobrania:</label>
+            <label class="form-label">
+                <i class="fas fa-clock"></i>
+                Dni do pobrania
+            </label>
             <input
                 type="number"
                 id="days-back"
@@ -39,858 +74,301 @@
                 min="0"
                 max="1095"
                 value="7"
+                class="form-control"
                 required
+                data-tooltip="0 = tylko dzisiaj, 365 = ostatni rok"
             >
-            <small>0 = tylko dzisiaj, 365 = ostatni rok, 1095 = 3 lata</small>
+            <small class="form-hint">Maksymalnie 1095 dni (3 lata)</small>
         </div>
     </div>
 
     <!-- Fixture Types -->
-    <div class="form-section">
-        <h3>Typy Wyścigów</h3>
-        <div class="checkbox-group">
-            <label>
-                <input type="checkbox" name="fixture_types" value="FLAT" checked>
-                Płaskie
-            </label>
-            <label>
-                <input type="checkbox" name="fixture_types" value="JUMP">
-                Skoki (National Hunt)
-            </label>
-            <label>
-                <input type="checkbox" name="fixture_types" value="AWT">
-                Całoroczne
-            </label>
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-layer-group"></i>
+                Typy Wyścigów
+            </h2>
+        </div>
+        <div class="checkbox-grid">
+            <div class="form-check">
+                <input type="checkbox" id="flat" name="fixture_types" value="FLAT" checked>
+                <label for="flat">
+                    <i class="fas fa-flag"></i>
+                    Wyścigi płaskie
+                </label>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" id="jump" name="fixture_types" value="JUMP">
+                <label for="jump">
+                    <i class="fas fa-person-running"></i>
+                    Skoki (National Hunt)
+                </label>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" id="awt" name="fixture_types" value="AWT">
+                <label for="awt">
+                    <i class="fas fa-sun"></i>
+                    Całoroczne (AWT)
+                </label>
+            </div>
         </div>
     </div>
 
     <!-- Course Selection -->
-    <div class="form-section">
-        <h3>Tory (Opcjonalne)</h3>
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-location-dot"></i>
+                Tory Wyścigowe
+            </h2>
+        </div>
         <div class="form-group">
-            <label for="course-search">Wyszukaj i wybierz tory:</label>
+            <label class="form-label">
+                <i class="fas fa-magnifying-glass"></i>
+                Wyszukaj tory
+            </label>
             <input
                 type="text"
                 id="course-search"
-                placeholder="Wpisz aby wyszukać tory..."
+                placeholder="Wpisz nazwę toru..."
+                class="form-control"
                 autocomplete="off"
+                data-tooltip="Zacznij wpisywać aby znaleźć tor"
             >
-            <div id="course-suggestions" class="suggestions-box"></div>
+            <div id="course-suggestions" class="suggestions-box hidden"></div>
         </div>
-        <div id="selected-courses" class="selected-items"></div>
-        <small>Pozostaw puste aby pobrać wszystkie tory</small>
+        <div id="selected-courses" class="mt-sm"></div>
+        <small class="form-hint">Pozostaw puste aby pobrać wszystkie tory</small>
     </div>
 
     <!-- Distance Range -->
-    <div class="form-section">
-        <h3>Zakres Dystansu (Opcjonalne)</h3>
-        <div class="form-row">
-            <div class="form-group" style="flex: 1;">
-                <label for="minimum-distance">Min. Dystans (jardy):</label>
-                <input type="number" id="minimum-distance" placeholder="np. 1000">
-                <small>5f = 1000y, 6f = 1200y, 1m = 1600y</small>
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-ruler"></i>
+                Zakres Dystansu
+            </h2>
+        </div>
+        <div class="input-group">
+            <div class="form-group">
+                <label class="form-label">Minimum (jardy)</label>
+                <input type="number" id="minimum-distance" class="form-control" placeholder="np. 1000">
+                <small class="form-hint">5f = 1000y, 6f = 1200y</small>
             </div>
-            <div class="form-group" style="flex: 1;">
-                <label for="maximum-distance">Maks. Dystans (jardy):</label>
-                <input type="number" id="maximum-distance" placeholder="np. 1400">
-                <small>7f = 1400y, 1.5m = 2400y</small>
+            <div class="form-group">
+                <label class="form-label">Maximum (jardy)</label>
+                <input type="number" id="maximum-distance" class="form-control" placeholder="np. 1400">
+                <small class="form-hint">7f = 1400y, 1m = 1600y</small>
             </div>
         </div>
     </div>
 
     <!-- Race Classes -->
-    <div class="form-section">
-        <h3>Klasy Wyścigów (Opcjonalne)</h3>
-        <div class="checkbox-group">
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-trophy"></i>
+                Klasy Wyścigów
+            </h2>
+        </div>
+        <div class="checkbox-grid">
             {% for class_num in "1234567" %}
-            <label>
-                <input type="checkbox" name="race_classes" value="{{ class_num }}">
-                Klasa {{ class_num }}
-            </label>
+            <div class="form-check">
+                <input type="checkbox" id="class-{{ class_num }}" name="race_classes" value="{{ class_num }}">
+                <label for="class-{{ class_num }}">Klasa {{ class_num }}</label>
+            </div>
             {% endfor %}
         </div>
-        <small>Pozostaw odznaczone aby uwzględnić wszystkie klasy</small>
+        <small class="form-hint">Pozostaw odznaczone aby uwzględnić wszystkie klasy</small>
     </div>
 
     <!-- Submit Section -->
-    <div class="form-section">
-        <button type="submit" id="submit-btn" class="btn-primary">
-            ▶ Rozpocznij Skanowanie
-        </button>
-        <button type="button" id="stop-btn" class="btn-danger" style="display: none;">
-            ⬛ STOP
-        </button>
-        <button type="button" id="save-preset-btn" class="btn-secondary">
-            💾 Zapisz jako Preset
-        </button>
-        <button type="button" id="reset-btn" class="btn-secondary">
-            🔄 Resetuj Formularz
-        </button>
+    <div class="section">
+        <div class="btn-group">
+            <button type="submit" id="submit-btn" class="btn btn-primary btn-lg" data-tooltip="Rozpocznij pobieranie danych">
+                <i class="fas fa-play"></i>
+                Rozpocznij Skanowanie
+            </button>
+            <button type="button" id="stop-btn" class="btn btn-danger btn-lg hidden" data-tooltip="Zatrzymaj aktywne skanowanie">
+                <i class="fas fa-stop"></i>
+                STOP
+            </button>
+            <button type="button" id="save-preset-btn" class="btn btn-secondary" data-tooltip="Zapisz obecną konfigurację jako preset">
+                <i class="fas fa-save"></i>
+                Zapisz Preset
+            </button>
+            <button type="button" id="reset-btn" class="btn btn-outline" data-tooltip="Wyczyść formularz">
+                <i class="fas fa-redo"></i>
+                Resetuj
+            </button>
+        </div>
     </div>
 </form>
 
-<!-- Status and Progress - REDESIGNED -->
-<div id="status" class="status"></div>
+<!-- Progress Container -->
+<div id="progress-container" class="section hidden">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-tasks"></i>
+            Postęp Skanowania
+        </h2>
+    </div>
 
-<div id="progress-container" style="display: none;">
-    <div class="progress">
-        <!-- Activity Indicator -->
-        <div id="activity-indicator" style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-            <div class="spinner"></div>
-            <div>
-                <div id="current-step" style="font-weight: 600; font-size: 16px; color: #333;">
-                    Inicjalizacja...
-                </div>
-                <div id="step-details" style="font-size: 14px; color: #666; margin-top: 4px;">
-                    Przygotowywanie skanera...
-                </div>
-            </div>
-        </div>
-
-        <!-- Steps Progress -->
-        <div class="steps-container">
-            <div class="step-item" data-step="1">
-                <div class="step-icon">📍</div>
-                <div class="step-label">Miejsca wyścigów</div>
-                <div class="step-count">-</div>
-            </div>
-            <div class="step-item" data-step="2">
-                <div class="step-icon">🏇</div>
-                <div class="step-label">Wyścigi</div>
-                <div class="step-count">-</div>
-            </div>
-            <div class="step-item" data-step="3">
-                <div class="step-icon">📊</div>
-                <div class="step-label">Występy</div>
-                <div class="step-count">-</div>
-            </div>
-            <div class="step-item" data-step="4">
-                <div class="step-icon">💾</div>
-                <div class="step-label">Import</div>
-                <div class="step-count">-</div>
-            </div>
-        </div>
-
-        <!-- Detailed Stats -->
-        <div id="progress-stats" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 14px;">
-            <div id="stats-content"></div>
+    <!-- Activity Indicator -->
+    <div class="activity-indicator">
+        <div class="spinner"></div>
+        <div class="activity-text">
+            <h4 id="status-message">Inicjalizacja...</h4>
+            <p class="text-muted">Przygotowywanie skanera...</p>
         </div>
     </div>
+
+    <!-- Steps -->
+    <div class="steps">
+    <div class="step" data-step="1">
+        <div class="step-icon"><i class="fas fa-map-marker-alt"></i></div>
+        <div class="step-label">Miejsca wyścigów</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Skanowanie miejsc</small>
+    </div>
+
+    <div class="step" data-step="2">
+        <div class="step-icon"><i class="fas fa-flag-checkered"></i></div>
+        <div class="step-label">Wyścigi</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Skanowanie wyścigów</small>
+    </div>
+
+    <div class="step" data-step="3">
+        <div class="step-icon"><i class="fas fa-chart-line"></i></div>
+        <div class="step-label">Wyniki</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Skanowanie wyników</small>
+    </div>
+
+    <div class="step" data-step="4">
+        <div class="step-icon"><i class="fas fa-horse"></i></div>
+        <div class="step-label">Dane koni</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Skanowanie koni</small>
+    </div>
+
+    <div class="step" data-step="5">
+        <div class="step-icon"><i class="fas fa-database"></i></div>
+        <div class="step-label">Transfer</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Import do bazy</small>
+    </div>
+</div>
 </div>
 
 <!-- Recent Jobs -->
-<div class="jobs-list">
-    <h2>Ostatnie Zadania</h2>
-    <div id="jobs-container">
-        {% if recent_jobs %}
-            {% for job in recent_jobs %}
-            <div class="job-item">
-                <div>
-                    <span class="job-status status-{{ job.status }}">
-                        {% if job.status == 'pending' %}OCZEKUJĄCE
-                        {% elif job.status == 'running' %}W TRAKCIE
-                        {% elif job.status == 'completed' %}UKOŃCZONE
-                        {% elif job.status == 'failed' %}BŁĄD
-                        {% endif %}
-                    </span>
-                    <strong>{{ job.days_back }} dni</strong>
-                    {% if job.filters %}
-                    <span style="color: #666; font-size: 12px;">
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-history"></i>
+            Ostatnie Zadania
+        </h2>
+    </div>
+
+    {% if recent_jobs %}
+    <div class="table-wrapper">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Zakres</th>
+                    <th>Filtry</th>
+                    <th>Data</th>
+                    <th>Statystyki</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in recent_jobs %}
+                <tr>
+                    <td>
+                        <span class="badge
+                            {% if job.status == 'pending' %}badge-warning
+                            {% elif job.status == 'running' %}badge-info
+                            {% elif job.status == 'completed' %}badge-success
+                            {% elif job.status == 'failed' %}badge-danger
+                            {% endif %}">
+                            {% if job.status == 'pending' %}
+                                <i class="fas fa-clock"></i> Oczekujące
+                            {% elif job.status == 'running' %}
+                                <i class="fas fa-spinner fa-spin"></i> W trakcie
+                            {% elif job.status == 'completed' %}
+                                <i class="fas fa-check"></i> Ukończone
+                            {% elif job.status == 'failed' %}
+                                <i class="fas fa-times"></i> Błąd
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td><strong>{{ job.days_back }} dni</strong></td>
+                    <td class="text-muted">
                         {% if job.filters.courses %}
-                            | Tory: {{ job.filters.courses|length }}
+                            <i class="fas fa-location-dot"></i> {{ job.filters.courses|length }} torów
                         {% endif %}
                         {% if job.filters.race_classes %}
-                            | Klasy: {{ job.filters.race_classes|join:", " }}
+                            <i class="fas fa-trophy"></i> Klasy: {{ job.filters.race_classes|join:", " }}
                         {% endif %}
-                    </span>
-                    {% endif %}
-                    <span style="color: #666; font-size: 14px;">
-                        | {{ job.created_at|date:"Y-m-d H:i" }}
-                    </span>
-                </div>
-                {% if job.stats %}
-                <div style="margin-top: 8px; font-size: 14px; color: #666;">
-                    Miejsca: {{ job.stats.fixtures_saved|default:0 }} |
-                    Wyścigi: {{ job.stats.races_saved|default:0 }} |
-                    Występy: {{ job.stats.performances_saved|default:0 }}
-                </div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        {% else %}
-            <p style="color: #666;">Brak zadań. Rozpocznij pierwsze skanowanie powyżej!</p>
-        {% endif %}
+                    </td>
+                    <td>{{ job.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if job.stats %}
+                            <i class="fas fa-map-marker-alt"></i> {{ job.stats.fixtures_saved|default:0 }}
+                            <i class="fas fa-flag-checkered"></i> {{ job.stats.races_saved|default:0 }}
+                            <i class="fas fa-chart-line"></i> {{ job.stats.performances_saved|default:0 }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}
+    <p class="text-muted">Brak zadań. Rozpocznij pierwsze skanowanie!</p>
+    {% endif %}
 </div>
-{% endblock %}
 
-{% block extra_css %}
+<!-- Suggestions Box Styles -->
 <style>
-    .form-section {
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 1px solid #eee;
-    }
+.suggestions-box {
+    position: absolute;
+    background: white;
+    border: 2px solid var(--color-border);
+    border-top: none;
+    border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+    max-height: 250px;
+    overflow-y: auto;
+    width: 100%;
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+}
 
-    .form-section:last-of-type {
-        border-bottom: none;
-    }
+.suggestion-item {
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    border-bottom: 1px solid var(--color-border);
+}
 
-    .form-section h3 {
-        color: #555;
-        margin-bottom: 15px;
-        font-size: 16px;
-        font-weight: 600;
-    }
+.suggestion-item:last-child {
+    border-bottom: none;
+}
 
-    .form-row {
-        display: flex;
-        gap: 20px;
-    }
-
-    .checkbox-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-    }
-
-    .checkbox-group label {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        margin: 0;
-        font-weight: normal;
-        cursor: pointer;
-    }
-
-    .checkbox-group input[type="checkbox"] {
-        cursor: pointer;
-    }
-
-    .form-control, select {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 16px;
-    }
-
-    .suggestions-box {
-        border: 1px solid #ddd;
-        border-top: none;
-        max-height: 200px;
-        overflow-y: auto;
-        display: none;
-        background: white;
-        position: relative;
-        z-index: 100;
-        border-radius: 0 0 4px 4px;
-    }
-
-    .suggestion-item {
-        padding: 10px;
-        cursor: pointer;
-        border-bottom: 1px solid #eee;
-    }
-
-    .suggestion-item:last-child {
-        border-bottom: none;
-    }
-
-    .suggestion-item:hover {
-        background: #f5f5f5;
-    }
-
-    .selected-items {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 10px;
-        min-height: 20px;
-    }
-
-    .selected-item {
-        background: #007bff;
-        color: white;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .remove-item {
-        cursor: pointer;
-        font-weight: bold;
-        font-size: 16px;
-        line-height: 1;
-    }
-
-    .remove-item:hover {
-        color: #ffcccc;
-    }
-
-    .btn-primary, .btn-secondary, .btn-danger {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 4px;
-        font-size: 16px;
-        cursor: pointer;
-        margin-right: 10px;
-        transition: background 0.2s;
-    }
-
-    .btn-primary {
-        background: #28a745;
-        color: white;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-        background: #218838;
-    }
-
-    .btn-primary:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-    }
-
-    .btn-danger {
-        background: #dc3545;
-        color: white;
-        font-weight: bold;
-    }
-
-    .btn-danger:hover {
-        background: #c82333;
-    }
-
-    .btn-secondary {
-        background: #6c757d;
-        color: white;
-    }
-
-    .btn-secondary:hover {
-        background: #545b62;
-    }
-
-    small {
-        color: #666;
-        font-size: 13px;
-        display: block;
-        margin-top: 5px;
-    }
-
-    /* Spinner Animation */
-    .spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid #007bff;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    /* Steps Progress */
-    .steps-container {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        margin-top: 20px;
-    }
-
-    .step-item {
-        text-align: center;
-        padding: 15px;
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        background: white;
-        transition: all 0.3s;
-    }
-
-    .step-item.active {
-        border-color: #007bff;
-        background: #e7f3ff;
-        transform: scale(1.05);
-    }
-
-    .step-item.completed {
-        border-color: #28a745;
-        background: #d4edda;
-    }
-
-    .step-icon {
-        font-size: 32px;
-        margin-bottom: 8px;
-    }
-
-    .step-label {
-        font-size: 13px;
-        color: #666;
-        font-weight: 500;
-    }
-
-    .step-count {
-        font-size: 18px;
-        font-weight: bold;
-        color: #333;
-        margin-top: 5px;
-    }
-
-    #progress-stats {
-        font-family: monospace;
-    }
+.suggestion-item:hover {
+    background: var(--color-bg-body);
+    color: var(--color-accent);
+}
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Available courses from backend
-const allCourses = {{ available_courses|safe }};
-const selectedCourses = new Set();
-
-let pollInterval = null;
-let currentJobId = null;
-
-// ========================================
-// COURSE AUTOCOMPLETE
-// ========================================
-
-const courseSearch = document.getElementById('course-search');
-const courseSuggestions = document.getElementById('course-suggestions');
-const selectedCoursesDiv = document.getElementById('selected-courses');
-
-courseSearch.addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase();
-
-    if (!query) {
-        courseSuggestions.style.display = 'none';
-        return;
-    }
-
-    const matches = allCourses.filter(course =>
-        course.toLowerCase().includes(query) && !selectedCourses.has(course)
-    );
-
-    if (matches.length > 0) {
-        courseSuggestions.innerHTML = matches
-            .slice(0, 10)
-            .map(course => `<div class="suggestion-item" data-course="${course}">${course}</div>`)
-            .join('');
-        courseSuggestions.style.display = 'block';
-    } else {
-        courseSuggestions.style.display = 'none';
-    }
-});
-
-courseSuggestions.addEventListener('click', (e) => {
-    if (e.target.classList.contains('suggestion-item')) {
-        const course = e.target.dataset.course;
-        addCourse(course);
-        courseSearch.value = '';
-        courseSuggestions.style.display = 'none';
-    }
-});
-
-document.addEventListener('click', (e) => {
-    if (!courseSearch.contains(e.target) && !courseSuggestions.contains(e.target)) {
-        courseSuggestions.style.display = 'none';
-    }
-});
-
-function addCourse(course) {
-    selectedCourses.add(course);
-    renderSelectedCourses();
-}
-
-function removeCourse(course) {
-    selectedCourses.delete(course);
-    renderSelectedCourses();
-}
-
-function renderSelectedCourses() {
-    if (selectedCourses.size === 0) {
-        selectedCoursesDiv.innerHTML = '';
-        return;
-    }
-
-    selectedCoursesDiv.innerHTML = Array.from(selectedCourses)
-        .map(course => `
-            <div class="selected-item">
-                ${course}
-                <span class="remove-item" onclick="removeCourse('${course}')">×</span>
-            </div>
-        `)
-        .join('');
-}
-
-// ========================================
-// PRESET LOADER
-// ========================================
-
-document.getElementById('preset-selector').addEventListener('change', async (e) => {
-    const presetId = e.target.value;
-
-    if (!presetId) return;
-
-    try {
-        const response = await fetch(`/api/preset/${presetId}/`);
-        const preset = await response.json();
-
-        document.querySelectorAll('[name="fixture_types"]').forEach(cb => cb.checked = false);
-        document.querySelectorAll('[name="race_classes"]').forEach(cb => cb.checked = false);
-        selectedCourses.clear();
-        document.getElementById('minimum-distance').value = '';
-        document.getElementById('maximum-distance').value = '';
-
-        if (preset.fixture_types && preset.fixture_types.length > 0) {
-            document.querySelectorAll('[name="fixture_types"]').forEach(cb => {
-                cb.checked = preset.fixture_types.includes(cb.value);
-            });
-        }
-
-        if (preset.courses && preset.courses.length > 0) {
-            preset.courses.forEach(course => selectedCourses.add(course));
-            renderSelectedCourses();
-        }
-
-        if (preset.minimum_distance) {
-            document.getElementById('minimum-distance').value = preset.minimum_distance;
-        }
-
-        if (preset.maximum_distance) {
-            document.getElementById('maximum-distance').value = preset.maximum_distance;
-        }
-
-        if (preset.race_classes && preset.race_classes.length > 0) {
-            document.querySelectorAll('[name="race_classes"]').forEach(cb => {
-                cb.checked = preset.race_classes.includes(parseInt(cb.value));
-            });
-        }
-
-    } catch (error) {
-        alert(`Błąd ładowania presetu: ${error.message}`);
-    }
-});
-
-// ========================================
-// FORM SUBMISSION
-// ========================================
-
-const form = document.getElementById('scrape-form');
-const submitBtn = document.getElementById('submit-btn');
-const stopBtn = document.getElementById('stop-btn');
-const statusDiv = document.getElementById('status');
-const progressContainer = document.getElementById('progress-container');
-const currentStepDiv = document.getElementById('current-step');
-const stepDetailsDiv = document.getElementById('step-details');
-const statsContent = document.getElementById('stats-content');
-
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const daysBack = parseInt(document.getElementById('days-back').value);
-
-    const fixtureTypes = Array.from(document.querySelectorAll('[name="fixture_types"]:checked'))
-        .map(cb => cb.value);
-
-    const raceClasses = Array.from(document.querySelectorAll('[name="race_classes"]:checked'))
-        .map(cb => parseInt(cb.value));
-
-    const minimumDistance = document.getElementById('minimum-distance').value;
-    const maximumDistance = document.getElementById('maximum-distance').value;
-
-    const requestData = {
-        days_back: daysBack
-    };
-
-    if (fixtureTypes.length > 0) {
-        requestData.fixture_types = fixtureTypes;
-    }
-
-    if (selectedCourses.size > 0) {
-        requestData.courses = Array.from(selectedCourses);
-    }
-
-    if (raceClasses.length > 0) {
-        requestData.race_classes = raceClasses;
-    }
-
-    if (minimumDistance) {
-        requestData.minimum_distance = parseInt(minimumDistance);
-    }
-
-    if (maximumDistance) {
-        requestData.maximum_distance = parseInt(maximumDistance);
-    }
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = '⏳ Uruchamianie...';
-
-    statusDiv.className = 'status info';
-    statusDiv.style.display = 'block';
-    statusDiv.textContent = `Rozpoczynanie skanowania dla ${daysBack} dni...`;
-
-    try {
-        const response = await fetch('/api/scrape/start/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(requestData)
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Nie udało się rozpocząć skanowania');
-        }
-
-        currentJobId = data.job_id;
-
-        // Show progress UI
-        progressContainer.style.display = 'block';
-        stopBtn.style.display = 'inline-block';
-        statusDiv.textContent = '🚀 Nowe skanowanie rozpoczęte!';
-
-        // Reset steps
-        document.querySelectorAll('.step-item').forEach(item => {
-            item.classList.remove('active', 'completed');
-            item.querySelector('.step-count').textContent = '-';
-        });
-
-        pollProgress(data.job_id);
-
-    } catch (error) {
-        statusDiv.className = 'status error';
-        statusDiv.textContent = `Błąd: ${error.message}`;
-        submitBtn.disabled = false;
-        submitBtn.textContent = '▶ Rozpocznij Skanowanie';
-    }
-});
-
-// ========================================
-// STOP BUTTON
-// ========================================
-
-stopBtn.addEventListener('click', async () => {
-    if (!currentJobId) return;
-
-    if (!confirm('Czy na pewno chcesz zatrzymać skanowanie?')) return;
-
-    try {
-        // TODO: Implement stop endpoint
-        // For now, just stop polling
-        if (pollInterval) {
-            clearInterval(pollInterval);
-        }
-
-        statusDiv.className = 'status error';
-        statusDiv.textContent = '⛔ Skanowanie zatrzymane przez użytkownika';
-        currentStepDiv.textContent = 'Zatrzymano';
-        stepDetailsDiv.textContent = '';
-
-        submitBtn.disabled = false;
-        submitBtn.textContent = '▶ Rozpocznij Skanowanie';
-        stopBtn.style.display = 'none';
-
-    } catch (error) {
-        alert(`Błąd zatrzymywania: ${error.message}`);
-    }
-});
-
-// ========================================
-// ENHANCED PROGRESS POLLING
-// ========================================
-
-const STEP_NAMES = {
-    1: 'Pobieranie miejsc wyścigów',
-    2: 'Pobieranie szczegółów wyścigów',
-    3: 'Zbieranie danych występów koni',
-    4: 'Importowanie do bazy danych'
-};
-
-async function pollProgress(jobId) {
-    if (pollInterval) {
-        clearInterval(pollInterval);
-    }
-
-    pollInterval = setInterval(async () => {
-        try {
-            const response = await fetch(`/api/scrape/status/${jobId}/`);
-            const job = await response.json();
-
-            // Update current step display
-            const stepName = STEP_NAMES[job.current_step] || 'Przetwarzanie';
-            currentStepDiv.textContent = job.status_message || stepName;
-
-            // Update step items
-            document.querySelectorAll('.step-item').forEach((item, index) => {
-                const stepNum = index + 1;
-
-                if (stepNum < job.current_step) {
-                    item.classList.add('completed');
-                    item.classList.remove('active');
-                } else if (stepNum === job.current_step) {
-                    item.classList.add('active');
-                    item.classList.remove('completed');
-                } else {
-                    item.classList.remove('active', 'completed');
-                }
-            });
-
-            // Update counts
-            if (job.stats) {
-                const step1 = document.querySelector('[data-step="1"] .step-count');
-                const step2 = document.querySelector('[data-step="2"] .step-count');
-                const step3 = document.querySelector('[data-step="3"] .step-count');
-                const step4 = document.querySelector('[data-step="4"] .step-count');
-
-                if (job.stats.fixtures_saved) step1.textContent = job.stats.fixtures_saved.toLocaleString('pl-PL');
-                if (job.stats.races_saved) step2.textContent = job.stats.races_saved.toLocaleString('pl-PL');
-                if (job.stats.performances_saved) step3.textContent = job.stats.performances_saved.toLocaleString('pl-PL');
-                if (job.stats.imported_fixtures) step4.textContent = job.stats.imported_fixtures.toLocaleString('pl-PL');
-
-                // Build stats display
-                const statsLines = [];
-                if (job.stats.fixtures_saved) statsLines.push(`Miejsca: ${job.stats.fixtures_saved.toLocaleString('pl-PL')}`);
-                if (job.stats.races_saved) statsLines.push(`Wyścigi: ${job.stats.races_saved.toLocaleString('pl-PL')}`);
-                if (job.stats.performances_saved) statsLines.push(`Występy: ${job.stats.performances_saved.toLocaleString('pl-PL')}`);
-
-                statsContent.innerHTML = statsLines.join(' | ') || 'Oczekiwanie na dane...';
-            }
-
-            // Check if completed
-            if (job.status === 'completed') {
-                clearInterval(pollInterval);
-                statusDiv.className = 'status success';
-                statusDiv.textContent = '✅ ' + (job.status_message || 'Skanowanie zakończone!');
-                currentStepDiv.textContent = 'Ukończono!';
-                stepDetailsDiv.textContent = '';
-
-                // Mark all as completed
-                document.querySelectorAll('.step-item').forEach(item => {
-                    item.classList.add('completed');
-                    item.classList.remove('active');
-                });
-
-                submitBtn.disabled = false;
-                submitBtn.textContent = '▶ Rozpocznij Skanowanie';
-                stopBtn.style.display = 'none';
-
-                setTimeout(() => location.reload(), 3000);
-            } else if (job.status === 'failed') {
-                clearInterval(pollInterval);
-                statusDiv.className = 'status error';
-                statusDiv.textContent = '❌ ' + (job.error_message || 'Skanowanie nie powiodło się');
-                currentStepDiv.textContent = 'Błąd';
-                stepDetailsDiv.textContent = job.error_message || '';
-
-                submitBtn.disabled = false;
-                submitBtn.textContent = '▶ Rozpocznij Skanowanie';
-                stopBtn.style.display = 'none';
-            }
-
-        } catch (error) {
-            console.error('Błąd odpytywania statusu:', error);
-        }
-    }, 1000);
-}
-
-// ========================================
-// RESET BUTTON
-// ========================================
-
-document.getElementById('reset-btn').addEventListener('click', () => {
-    form.reset();
-    selectedCourses.clear();
-    renderSelectedCourses();
-    document.getElementById('preset-selector').value = '';
-
-    statusDiv.style.display = 'none';
-    progressContainer.style.display = 'none';
-
-    if (pollInterval) {
-        clearInterval(pollInterval);
-    }
-});
-
-// ========================================
-// SAVE PRESET BUTTON
-// ========================================
-
-document.getElementById('save-preset-btn').addEventListener('click', async () => {
-    const name = prompt('Wprowadź nazwę presetu:');
-    if (!name) return;
-
-    const description = prompt('Wprowadź opis presetu (opcjonalnie):') || '';
-
-    const fixtureTypes = Array.from(document.querySelectorAll('[name="fixture_types"]:checked'))
-        .map(cb => cb.value);
-
-    const raceClasses = Array.from(document.querySelectorAll('[name="race_classes"]:checked'))
-        .map(cb => parseInt(cb.value));
-
-    const minimumDistance = document.getElementById('minimum-distance').value;
-    const maximumDistance = document.getElementById('maximum-distance').value;
-
-    const presetData = {
-        name: name,
-        description: description,
-        fixture_types: fixtureTypes,
-        courses: Array.from(selectedCourses),
-        race_classes: raceClasses,
-        minimum_distance: minimumDistance ? parseInt(minimumDistance) : null,
-        maximum_distance: maximumDistance ? parseInt(maximumDistance) : null
-    };
-
-    try {
-        const response = await fetch('/api/preset/save/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(presetData)
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(data.message);
-            location.reload();
-        } else {
-            throw new Error(data.error || 'Nie udało się zapisać presetu');
-        }
-
-    } catch (error) {
-        alert(`Błąd zapisu presetu: ${error.message}`);
-    }
-});
-
-// ========================================
-// UTILITY FUNCTIONS
-// ========================================
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
+    // Pass courses data to JavaScript
+    window.COURSES_DATA = {{ available_courses|safe }};
 </script>
+<script src="{% static 'api/js/scraper.js' %}"></script>
 {% endblock %}

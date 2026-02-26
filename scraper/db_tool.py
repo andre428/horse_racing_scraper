@@ -180,6 +180,12 @@ def init_database() -> None:
             CREATE INDEX IF NOT EXISTS idx_horses_processed ON horses(processed)
         """)
 
+        _ensure_scrape_log_columns(conn)
+        conn.executescript("""
+            CREATE INDEX IF NOT EXISTS idx_scrape_log_type_status ON scrape_log(scrape_type, status);
+            CREATE INDEX IF NOT EXISTS idx_scrape_log_type_target ON scrape_log(scrape_type, target_id);
+        """)
+
 
 def convert_race_time(time_string: str) -> str:
     """Convert time string to 4 digit format (e.g., '11:37:00' -> '1137')."""
@@ -381,3 +387,124 @@ def log_batch_complete(conn: Any, step_name: str, batch_num: int, items_processe
             f"batch_{batch_num}"
         )
     )
+
+
+def _ensure_scrape_log_columns(conn: Any) -> None:
+    """
+    Ensure scrape_log has extra columns needed for robust retry logic.
+
+    Safe for SQLite: only adds columns if missing.
+    """
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(scrape_log)")}
+
+    if "attempts" not in existing:
+        conn.execute("ALTER TABLE scrape_log ADD COLUMN attempts INTEGER DEFAULT 0")
+    if "last_attempt_at" not in existing:
+        conn.execute("ALTER TABLE scrape_log ADD COLUMN last_attempt_at TEXT")
+
+
+def upsert_scrape_log(
+        conn: Any,
+        scrape_type: str,
+        target_id: str,
+        status: str,
+        error_message: str | None = None,
+        increment_attempt: bool = False,
+) -> None:
+    """
+    Idempotent status updates for a target (e.g. a horse animal_id).
+
+    Status conventions for horses:
+      - running
+      - completed
+      - failed
+      - not_found
+      - skipped
+
+    If increment_attempt=True, attempts is incremented and last_attempt_at is set.
+    """
+    now = datetime.now().isoformat(timespec="seconds")
+    completed_at = now if status in {"completed", "failed", "not_found", "skipped"} else None
+
+    # Ensure row exists
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO scrape_log (scrape_type, target_id, status, error_message, started_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (scrape_type, target_id, status, error_message, now, completed_at),
+    )
+
+    if increment_attempt:
+        conn.execute(
+            """
+            UPDATE scrape_log
+            SET status = ?,
+                error_message = ?,
+                completed_at = ?,
+                attempts = COALESCE(attempts, 0) + 1,
+                last_attempt_at = ?
+            WHERE scrape_type = ? AND target_id = ?
+            """,
+            (status, error_message, completed_at, now, scrape_type, target_id),
+        )
+    else:
+        conn.execute(
+            """
+            UPDATE scrape_log
+            SET status = ?,
+                error_message = ?,
+                completed_at = ?
+            WHERE scrape_type = ? AND target_id = ?
+            """,
+            (status, error_message, completed_at, scrape_type, target_id),
+        )
+
+
+def get_pending_horse_ids(
+        conn: Any,
+        limit: int = 100,
+        retry_cooldown_minutes: int = 60,
+        max_attempts: int = 5,
+) -> list[int]:
+    """
+    Returns animal_ids seen in race_performances but not yet in horses, excluding:
+      - completed
+      - not_found
+    Retries:
+      - failed entries only if cooldown has elapsed and attempts < max_attempts
+      - never retries not_found
+    """
+    cursor = conn.execute(
+        """
+        WITH candidates AS (
+            SELECT DISTINCT rp.animal_id AS animal_id
+            FROM race_performances rp
+            LEFT JOIN horses h ON h.animal_id = rp.animal_id
+            WHERE h.animal_id IS NULL
+        )
+        SELECT c.animal_id
+        FROM candidates c
+        LEFT JOIN scrape_log sl
+            ON sl.scrape_type = 'horse'
+           AND sl.target_id = CAST(c.animal_id AS TEXT)
+        WHERE
+            sl.id IS NULL
+            OR (
+                sl.status NOT IN ('completed', 'not_found')
+                AND (
+                    sl.status != 'failed'
+                    OR (
+                        COALESCE(sl.attempts, 0) < ?
+                        AND (
+                            sl.last_attempt_at IS NULL
+                            OR datetime(sl.last_attempt_at) <= datetime('now', '-' || ? || ' minutes')
+                        )
+                    )
+                )
+            )
+        LIMIT ?
+        """,
+        (max_attempts, retry_cooldown_minutes, limit),
+    )
+    return [row["animal_id"] for row in cursor.fetchall()]

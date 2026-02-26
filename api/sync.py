@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from django.conf import settings
 from django.db import transaction
@@ -22,7 +23,7 @@ class SyncStats:
 
 
 def _connect_scraper_db() -> sqlite3.Connection:
-    db_path = Path(getattr(settings, "SCRAPER_DB_PATH"))
+    db_path = Path(settings.SCRAPER_DB_PATH)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     return conn

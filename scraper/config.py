@@ -23,7 +23,7 @@ API_BASE: dict[str, str] = {
     # Races in a fixture: /bha/v1/fixtures/{year}/{fixture_id}/races
     "races": "https://api09.horseracing.software/bha/v1/fixtures/{year}/{fixture_id}/races",
     # Results for a race: /bha/v1/races/{year}/{race_id}/0/results
-    "results": "https://api09.horseracing.software/bha/v1/races/{year}/{race_id}/0/results",
+    "results": "https://api09.horseracing.software/bha/v1/races/{year}/{race_id}/{division}/results",
     # Horse data
     "horses": "https://api09.horseracing.software/bha/v1/racehorses/{animal_id}",
     # Fixtures listed on page

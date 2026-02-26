@@ -6,6 +6,7 @@ Run with: python manage.py load_presets --clear (delete all first)
 """
 
 from django.core.management.base import BaseCommand
+
 from api.models import FilterPreset
 
 
@@ -27,7 +28,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING(f"Deleted {old_count} existing preset(s)")
             )
-        
+
         presets = [
             {
                 "name": "Test Mode",
@@ -114,7 +115,7 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.WARNING(f"→ Updated preset: {preset.name}")
                 )
-        
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"\nDone! Created: {created_count}, Updated: {updated_count}"

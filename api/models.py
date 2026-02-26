@@ -12,10 +12,11 @@ class ScrapeJob(models.Model):
     """Track scraping jobs and their progress."""
 
     STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("running", "Running"),
-        ("completed", "Completed"),
-        ("failed", "Failed"),
+        ("pending", "Oczekujące"),
+        ("running", "W trakcie"),
+        ("completed", "Ukończone"),
+        ("failed", "Błąd"),
+        ("stopped", "Zatrzymane"),
     ]
 
     job_id = models.CharField(max_length=100, unique=True, db_index=True)

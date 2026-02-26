@@ -2,78 +2,66 @@
 Step 3: Fetch race results.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any, TypedDict
 
 from .config import API_BASE
 from .db_tool import get_connection, get_unprocessed_races, mark_processed
 from .http_ops import fetch_json
 from .token_manager import TokenManager
 
-def fetch_results_for_races(
-    token_manager: TokenManager, limit: int = 100, filters: dict = None
-) -> dict[str, int]:
-    """
-    Query for races needing results.
 
-    Args:
-        token_manager: TokenManager instance
-        limit: Max races to process per call
-        filters: Dict with optional keys:
-            - race_type: "FLAT" or "JUMP"
-            - minimum_distance: Minimum distance in meters
-            - maximum_distance: Maximum distance in meters
-            - race_classes: List of race classes [1, 2, 3, ...]
-    """
-    with get_connection() as conn:
-        races = get_unprocessed_races(conn, limit, race_filters=filters if filters else None)
+class RaceFilters(TypedDict, total=False):
+    race_type: str
+    minimum_distance: int
+    maximum_distance: int
+    race_classes: list[int]
 
-    stats = {
-        "races_checked": 0,
-        "results_saved": 0,
-        "races_completed": 0,
-    }
 
-    if not races:
-        return stats
+class PerformanceRow(TypedDict, total=False):
+    performance_id: int
+    race_id: int
+    animal_id: int | None
+    division_sequence: int | None
+    result_position: int | None
+    status: int | None
+    horse_name: str | None
+    cloth_number: str | None
+    drawn_stall: int | None
+    reserve_no: int | None
+    trainer_name: str | None
+    jockey_name: str | None
+    sex: str | None
+    age: str | None
+    primary_color: Any
+    position_time: str | None
+    is_runner: Any
+    final_position: str | None
+    race_criteria_type: Any
+    finish_time: str | None
+    fetched_at: str
+    processed: int
 
-    for race in races:
-        stats["races_checked"] += 1
 
-        race_id = race["race_id"]
-        race_date = race["race_date"]
-        division = race["division_sequence"]
+def _build_results_url(race_date: str, race_id: int, division: int) -> str:
+    year = race_date.split("-")[0]
+    return API_BASE["results"].format(year=year, race_id=race_id, division=division)
 
-        year = race_date.split("-")[0]
-        url = API_BASE["results"].format(year=year, race_id=race_id, division=division)
 
-        try:
-            token = token_manager.get_valid_token()
-            response = fetch_json(url, token)
+def _extract_raw_performances(payload: object, race_id: int) -> list[dict[str, Any]] | None:
+    if not isinstance(payload, dict):
+        print(f"[Step3] Invalid response type for race {race_id}: {type(payload)}")
+        return None
 
-            raw_performances = response.get("data", [])
+    raw = payload.get("data") or []
+    if not isinstance(raw, list):
+        print(f"[Step3] Invalid performances list type for race {race_id}: {type(raw)}")
+        return None
 
-            performances = [transform_performance(p, race_id) for p in raw_performances]
+    return [raw_performance for raw_performance in raw if isinstance(raw_performance, dict)]
 
-            if performances:
-                save_performances(performances)
-                stats["results_saved"] += len(performances)
 
-                # Update horse count for this race
-                update_horse_count(race_id, len(performances))
-
-            with get_connection() as conn:
-                mark_processed(conn, "races", "race_id", race_id)
-            stats["races_completed"] += 1
-
-        except RuntimeError as e:
-            if "401" in str(e):
-                token_manager.refresh_token()
-            print(f"[Step3] Failed race {race_id}: {e}")
-            continue
-
-    return stats
-
-def transform_performance(raw, race_id):
+def transform_performance(raw: dict[str, Any], race_id: int) -> PerformanceRow:
     """Transform API performance data to database format."""
     return {
         "race_id": race_id,
@@ -95,11 +83,69 @@ def transform_performance(raw, race_id):
         "final_position": raw.get("finalPosition"),
         "race_criteria_type": raw.get("raceCriteriaRaceType"),
         "finish_time": raw.get("finishTime"),
-        "fetched_at": datetime.now().isoformat(timespec="seconds"),
+        "fetched_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "processed": 0,
     }
 
-def save_performances(performances):
+
+def fetch_results_for_races(
+        token_manager: TokenManager,
+        limit: int = 100,
+        filters: RaceFilters | None = None,
+) -> dict[str, int]:
+    """
+    Query for races needing results.
+    """
+    with get_connection() as conn:
+        races = get_unprocessed_races(conn, limit, race_filters=filters)
+
+    stats = {
+        "races_checked": 0,
+        "results_saved": 0,
+        "races_completed": 0,
+    }
+
+    if not races:
+        return stats
+
+    for race in races:
+        stats["races_checked"] += 1
+
+        race_id = race["race_id"]
+        race_date = race["race_date"]
+        division = race["division_sequence"]
+
+        url = _build_results_url(race_date, race_id, division)
+
+        try:
+            token = token_manager.get_valid_token()
+            payload = fetch_json(url, token)
+
+            raw_performances = _extract_raw_performances(payload, race_id)
+            if raw_performances is None:
+                continue
+
+            performances = [transform_performance(p, race_id) for p in raw_performances]
+
+            if performances:
+                save_performances(performances)
+                stats["results_saved"] += len(performances)
+                update_horse_count(race_id, len(performances))
+
+            with get_connection() as conn:
+                mark_processed(conn, "races", "race_id", race_id)
+            stats["races_completed"] += 1
+
+        except RuntimeError as exc:
+            if "401" in str(exc):
+                token_manager.refresh_token()
+            print(f"[Step3] Failed race {race_id}: {exc}")
+            continue
+
+    return stats
+
+
+def save_performances(performances: list[PerformanceRow]) -> None:
     """Save race performances to database."""
     if not performances:
         return
@@ -116,24 +162,24 @@ def save_performances(performances):
                 (
                     p.get("performance_id"),
                     p["race_id"],
-                    p["animal_id"],
-                    p["division_sequence"],
-                    p["result_position"],
-                    p["status"],
-                    p["horse_name"],
-                    p["cloth_number"],
-                    p["drawn_stall"],
-                    p["reserve_no"],
-                    p["trainer_name"],
-                    p["jockey_name"],
-                    p["sex"],
-                    p["age"],
-                    p["primary_color"],
-                    p["position_time"],
-                    p["is_runner"],
-                    p["final_position"],
-                    p["race_criteria_type"],
-                    p["finish_time"],
+                    p.get("animal_id"),
+                    p.get("division_sequence"),
+                    p.get("result_position"),
+                    p.get("status"),
+                    p.get("horse_name"),
+                    p.get("cloth_number"),
+                    p.get("drawn_stall"),
+                    p.get("reserve_no"),
+                    p.get("trainer_name"),
+                    p.get("jockey_name"),
+                    p.get("sex"),
+                    p.get("age"),
+                    p.get("primary_color"),
+                    p.get("position_time"),
+                    p.get("is_runner"),
+                    p.get("final_position"),
+                    p.get("race_criteria_type"),
+                    p.get("finish_time"),
                     p["fetched_at"],
                     p["processed"],
                 )
@@ -141,7 +187,8 @@ def save_performances(performances):
             ],
         )
 
-def update_horse_count(race_id, count):
+
+def update_horse_count(race_id: int, count: int) -> None:
     """Update horse_count for a race after saving performances."""
     with get_connection() as conn:
         conn.execute(
@@ -152,4 +199,3 @@ def update_horse_count(race_id, count):
             """,
             (count, race_id),
         )
-

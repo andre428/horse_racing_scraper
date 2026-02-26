@@ -1,80 +1,59 @@
 """
-Scraper service class for Django integration.
+Scraper service for orchestrating multistep scraping.
 """
+
 import time
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from collections.abc import Callable
-from .step1_fixtures import fetch_fixtures_range
+from .db_tool import get_connection, get_scraping_stats, get_unscraped_horses
+from .step1_fixtures import FixtureFilters, fetch_fixtures_range
 from .step2_races import fetch_races_for_fixtures
-from .step3_results import fetch_results_for_races
+from .step3_results import RaceFilters, fetch_results_for_races
 from .step4_horses import fetch_horse_profiles
-from .db_tool import get_connection, get_unscraped_horses, get_scraping_stats
 from .token_manager import TokenManager
 from .utils import info, warn
 
 
 class ScraperService:
-    """
-    Production-grade service for orchestrating multistep scraping.
+    """Coordinates fixtures → races → results → horses scraping workflow."""
 
-    Handles token management, progress tracking, and error recovery.
-    """
-
-    def __init__(self, enable_logging: bool = True, rate_limit_seconds: int = 2,
-                 progress_callback: Callable[[str, dict], None] | None = None
-                 ):
-        """
-        Initialize the scraper service.
-
-        Args:
-            enable_logging: If True, log progress messages
-            rate_limit_seconds: Number of seconds to wait between API calls
-            progress_callback: Optional callback for progress updates
-        """
+    def __init__(
+        self,
+        enable_logging: bool = True,
+        rate_limit_seconds: int = 2,
+        progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
+    ) -> None:
+        """Create service and initialize token manager."""
         self.enable_logging = enable_logging
         self.rate_limit_seconds = rate_limit_seconds
         self.progress_callback = progress_callback
-        self._log = info if enable_logging else lambda x: None
-        self._warn = warn if enable_logging else lambda x: None
+        self._log = info if enable_logging else lambda _: None
+        self._warn = warn if enable_logging else lambda _: None
 
-        self.filters: dict[str, Any] = {}
+        self.fixture_filters: FixtureFilters = {}
+        self.race_filters: RaceFilters = {}
 
-        # Initialize token manager
         self._log("Initializing token manager...")
         self.token_manager = TokenManager()
 
-        # Pre-fetch token to fail fast
         try:
             self.token_manager.get_valid_token()
             self._log("Token ready")
-        except Exception as e:
-            self._warn(f"Token initialization failed: {e}")
+        except Exception as exc:
+            self._warn(f"Token initialization failed: {exc}")
             raise
 
     @staticmethod
-    def _validate_filters(filters: dict | None) -> dict:
-        """
-        Validate and normalize filter configuration.
-
-        FIXED: Made a static method since it doesn't use instance state.
-
-        Args:
-            filters: Optional filter dictionary
-
-        Returns:
-            Validated filter dictionary
-
-        Raises:
-            ValueError: If any filter is invalid
-        """
+    def _validate_filters(filters: dict[str, Any] | None) -> tuple[FixtureFilters, RaceFilters]:
+        """Validate filters and return (fixture_filters, race_filters)."""
         if filters is None:
-            return {}
+            return {}, {}
 
-        valid_filters = {}
+        fixture_filters: FixtureFilters = {}
+        race_filters: RaceFilters = {}
 
-        # Fixture-level filters
         if "fixture_types" in filters:
             types = filters["fixture_types"]
             if not isinstance(types, list):
@@ -83,80 +62,64 @@ class ScraperService:
             for ft in types:
                 if ft not in valid_types:
                     raise ValueError(f"Invalid fixture_type: {ft}. Must be one of {valid_types}")
-            valid_filters["fixture_types"] = types
+            fixture_filters["fixture_types"] = types
 
         if "courses" in filters:
             courses = filters["courses"]
             if not isinstance(courses, list):
                 raise ValueError("courses must be a list")
-            valid_filters["courses"] = courses
+            fixture_filters["courses"] = courses
 
-        # Race-level filters
         if "race_type" in filters:
-            if filters["race_type"] not in {"FLAT", "JUMP"}:
+            value = filters["race_type"]
+            if value not in {"FLAT", "JUMP"}:
                 raise ValueError("race_type must be 'FLAT' or 'JUMP'")
-            valid_filters["race_type"] = filters["race_type"]
+            race_filters["race_type"] = value
 
         if "minimum_distance" in filters:
-            if not isinstance(filters["minimum_distance"], int) or filters["minimum_distance"] < 0:
+            value = filters["minimum_distance"]
+            if not isinstance(value, int) or value < 0:
                 raise ValueError("minimum_distance must be a positive integer")
-            valid_filters["minimum_distance"] = filters["minimum_distance"]
+            race_filters["minimum_distance"] = value
 
         if "maximum_distance" in filters:
-            if not isinstance(filters["maximum_distance"], int) or filters["maximum_distance"] < 0:
+            value = filters["maximum_distance"]
+            if not isinstance(value, int) or value < 0:
                 raise ValueError("maximum_distance must be a positive integer")
-            valid_filters["maximum_distance"] = filters["maximum_distance"]
+            race_filters["maximum_distance"] = value
 
         if "race_classes" in filters:
             classes = filters["race_classes"]
             if not isinstance(classes, list):
                 raise ValueError("race_classes must be a list")
             for rc in classes:
-                if not isinstance(rc, int) or rc < 1 or rc > 7:
+                if not isinstance(rc, int) or not (1 <= rc <= 7):
                     raise ValueError(f"Invalid race_class: {rc}. Must be 1-7")
-            valid_filters["race_classes"] = classes
+            race_filters["race_classes"] = classes
 
-        return valid_filters
+        return fixture_filters, race_filters
 
     def scrape_date_range(
-            self,
-            dates: list[str],
-            run_horses: bool = True,
-            batch_size: dict[str, int] | None = None,
-            filters: dict | None = None
+        self,
+        dates: list[str],
+        run_horses: bool = True,
+        batch_size: dict[str, int] | None = None,
+        filters: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Complete scraping workflow: fixtures → races → results → horses.
-
-        Args:
-            dates: List of date strings in "YYYY-MM-DD" format
-            run_horses: If True, also scrape horse profiles (Step 4)
-            batch_size: Dict with limits for each step, e.g.:
-                {"races": 50, "results": 100, "horses": 100}
-            filters: Dict with optional filtering criteria
-
-        Returns:
-            Dictionary with:
-                - success: bool
-                - stats: dict with counts for each step
-                - error: str | None
-        """
+        """Run the full scraping workflow for a list of ISO dates."""
         if not dates:
             raise ValueError("No dates provided")
 
-        # Validate dates
-        try:
-            for date_str in dates:
+        for date_str in dates:
+            try:
                 datetime.fromisoformat(date_str)
-        except ValueError as e:
-            raise ValueError(f"Invalid date format: {e}") from None
+            except ValueError as exc:
+                raise ValueError(f"Invalid date format: {exc}") from None
 
-        # Default batch sizes
         if batch_size is None:
             batch_size = {"races": 50, "results": 100, "horses": 100}
 
-        # Initialize stats
-        stats = {
+        stats: dict[str, Any] = {
             "dates_requested": len(dates),
             "fixtures_saved": 0,
             "races_saved": 0,
@@ -166,161 +129,70 @@ class ScraperService:
             "races_completed": 0,
         }
 
-        # FIXED: Now calls static method and assigns to instance attribute
-        try:
-            self.filters = self._validate_filters(filters)
-        except ValueError as e:
-            self._warn(f"Filter validation failed: {e}")
-            raise
+        self.fixture_filters, self.race_filters = self._validate_filters(filters)
 
         try:
             start_date = dates[0]
             end_date = dates[-1]
 
-            # STEP 1: Fetch fixtures
-            self._log("=" * 60)
-            self._log(f"STEP 1: Fetching fixtures ({start_date} to {end_date})")
-            self._log("=" * 60)
-
             fixtures_result = fetch_fixtures_range(
-                start_date=start_date, end_date=end_date, token_manager=self.token_manager, filters=self.filters
+                start_date=start_date,
+                end_date=end_date,
+                token_manager=self.token_manager,
+                filters=self.fixture_filters,
             )
-
             stats["fixtures_saved"] = fixtures_result.get("fixtures_saved", 0)
-            self._log(f"✓ Step 1 complete: {stats['fixtures_saved']} fixtures saved")
 
             if stats["fixtures_saved"] == 0:
-                self._warn("No fixtures found - stopping workflow")
-                return {
-                    "success": True,
-                    "stats": stats,
-                    "error": None,
-                }
-            self._report_progress("step_completed", {
-                "step": 1,
-                "name": "fixtures",
-                "count": stats["fixtures_saved"]
-            })
-
-            # STEP 2: Fetch races (batched with filters)
-            self._log("\n" + "=" * 60)
-            self._log("STEP 2: Fetching races for fixtures")
-            if self.filters.get("fixture_types"):
-                self._log(f"  Filtering: fixture_types={self.filters['fixture_types']}")
-            if self.filters.get("courses"):
-                self._log(f"  Filtering: courses={self.filters['courses']}")
-            self._log("=" * 60)
+                return {"success": True, "stats": stats, "error": None}
 
             races_result = self._run_batched_step(
                 fetch_races_for_fixtures,
                 batch_size["races"],
                 "races",
-                filters=self.filters
+                filters=self.fixture_filters,
             )
-
-            stats["races_saved"] = races_result["races_saved"]
-            stats["fixtures_completed"] = races_result["fixtures_completed"]
-            self._log(f"✓ Step 2 complete: {stats['races_saved']} races saved")
+            stats["races_saved"] = races_result.get("races_saved", 0)
+            stats["fixtures_completed"] = races_result.get("fixtures_completed", 0)
 
             if stats["races_saved"] == 0:
-                self._warn("No races found - stopping workflow")
-                return {
-                    "success": True,
-                    "stats": stats,
-                    "error": None,
-                }
-            self._report_progress("step_completed", {
-                "step": 2,
-                "name": "races",
-                "count": stats["races_saved"]
-            })
-
-            # STEP 3: Fetch results (batched)
-            self._log("\n" + "=" * 60)
-            self._log("STEP 3: Fetching results for races")
-            if self.filters.get("race_type"):
-                self._log(f"  Filtering: race_type={self.filters['race_type']}")
-            if self.filters.get("minimum_distance") or self.filters.get("maximum_distance"):
-                self._log(
-                    f"  Filtering: distance={self.filters.get('minimum_distance')}-{self.filters.get('maximum_distance')}m")
-            self._log("=" * 60)
+                return {"success": True, "stats": stats, "error": None}
 
             results_result = self._run_batched_step(
                 fetch_results_for_races,
                 batch_size["results"],
                 "results",
-                filters=self.filters
+                filters=self.race_filters,
             )
+            stats["performances_saved"] = results_result.get("results_saved", 0)
+            stats["races_completed"] = results_result.get("races_completed", 0)
 
-            stats["performances_saved"] = results_result["results_saved"]
-            stats["races_completed"] = results_result["races_completed"]
-            self._log(f"✓ Step 3 complete: {stats['performances_saved']} performances saved")
-            self._report_progress("step_completed", {
-                "step": 3,
-                "name": "results",
-                "count": stats["performances_saved"]
-            })
-
-            # STEP 4: Fetch horse profiles (optional, batched)
             if run_horses:
-                self._log("\n" + "=" * 60)
-                self._log("STEP 4: Fetching horse profiles")
-                self._log("=" * 60)
-
                 horses_result = self._run_batched_step(
-                    fetch_horse_profiles, batch_size["horses"], "horses", filters=self.filters
+                    fetch_horse_profiles,
+                    batch_size["horses"],
+                    "horses",
                 )
-
                 stats["horses_saved"] = horses_result.get("horses_saved", 0)
-                self._log(f"✓ Step 4 complete: {stats['horses_saved']} horses saved")
-                self._report_progress("step_completed", {
-                    "step": 4,
-                    "name": "horses",
-                    "count": stats["horses_saved"]
-                })
 
-            # Final summary
-            self._log("\n" + "=" * 60)
-            self._log("WORKFLOW COMPLETE")
-            self._log("=" * 60)
             self._report_progress("workflow_completed", stats)
             self._log_summary(stats)
+            return {"success": True, "stats": stats, "error": None}
 
-            return {
-                "success": True,
-                "stats": stats,
-                "error": None,
-            }
-
-        except Exception as e:
-            error_msg = f"Scraping failed: {e}"
+        except Exception as exc:
+            error_msg = f"Scraping failed: {exc}"
             self._warn(error_msg)
-            return {
-                "success": False,
-                "stats": stats,
-                "error": error_msg,
-            }
+            return {"success": False, "stats": stats, "error": error_msg}
 
     def _run_batched_step(
-            self,
-            step_function,
-            batch_size: int,
-            step_name: str,
-            filters: dict = None
+        self,
+        step_function: Callable[..., dict[str, int]],
+        batch_size: int,
+        step_name: str,
+        **step_kwargs: Any,
     ) -> dict[str, int]:
-        """
-        Run a step function in batches until no more items to process.
-
-        Args:
-            step_function: The step function to call
-            batch_size: Number of items per batch
-            step_name: Name for logging
-            filters: Optional filters to pass to step function
-
-        Returns:
-            Aggregated stats from all batches
-        """
-        total_stats = {
+        """Run a step function until it reports no new saved items."""
+        totals: dict[str, int] = {
             "races_saved": 0,
             "results_saved": 0,
             "fixtures_completed": 0,
@@ -329,52 +201,31 @@ class ScraperService:
         }
 
         batch_num = 0
-
         while True:
             batch_num += 1
-            self._log(f"  Processing batch {batch_num} ({batch_size} items)...")
 
-            try:
-                # Run one batch with filters
-                batch_stats = step_function(
-                    token_manager=self.token_manager,
-                    limit=batch_size,
-                    filters=filters
-                )
-                # Check if any work was done
-                items_processed = batch_stats.get(f"{step_name}_saved", 0)
-                if items_processed == 0:
-                    self._log(f"  Batch {batch_num}: No more items to process")
-                    break
+            batch_stats = step_function(
+                token_manager=self.token_manager,
+                limit=batch_size,
+                **step_kwargs,
+            )
 
-                # Aggregate stats
-                for key, value in batch_stats.items():
-                    if key in total_stats:
-                        total_stats[key] += value
+            items_saved = batch_stats.get(f"{step_name}_saved", 0)
+            if items_saved == 0:
+                break
 
-                self._log(f"  Batch {batch_num}: Processed {items_processed} items")
+            for key, value in batch_stats.items():
+                if key in totals:
+                    totals[key] += value
 
-                # Progress logging for large batches
-                if batch_num % 10 == 0:
-                    self._log(f"  Progress: {batch_num} batches completed")
+            time.sleep(self.rate_limit_seconds)
 
-                time.sleep(self.rate_limit_seconds)
+        return totals
 
-            except Exception as e:
-                self._warn(f"Batch {batch_num} failed: {e}")
-                raise
-
-        return total_stats
-
-    def resume_scraping(self, run_horses: bool = True, batch_size: dict = None):
-        """
-        Resume scraping from where it left off.
-
-        Automatically detects which steps need completion:
-        - If unprocessed fixtures → run Step 2
-        - If unprocessed races → run Step 3
-        - If missing horses → run Step 4
-        """
+    def resume_scraping(
+        self, run_horses: bool = True, batch_size: dict[str, int] | None = None
+    ) -> dict[str, Any]:
+        """Resume pending steps based on database progress."""
         if batch_size is None:
             batch_size = {"races": 50, "results": 100, "horses": 100}
 
@@ -388,41 +239,33 @@ class ScraperService:
 
         progress = self.get_progress()
 
-        # Step 2: Races
         if progress["fixtures"]["remaining"] > 0:
-            self._log(f"Resuming Step 2: {progress['fixtures']['remaining']} fixtures need races")
             races_result = self._run_batched_step(
                 fetch_races_for_fixtures, batch_size["races"], "races"
             )
-            stats["races_saved"] = races_result["races_saved"]
-            stats["fixtures_completed"] = races_result["fixtures_completed"]
+            stats["races_saved"] = races_result.get("races_saved", 0)
+            stats["fixtures_completed"] = races_result.get("fixtures_completed", 0)
 
-        # Step 3: Results
         if progress["races"]["remaining"] > 0:
-            self._log(f"Resuming Step 3: {progress['races']['remaining']} races need results")
             results_result = self._run_batched_step(
                 fetch_results_for_races, batch_size["results"], "results"
             )
-            stats["performances_saved"] = results_result["results_saved"]
-            stats["races_completed"] = results_result["races_completed"]
+            stats["performances_saved"] = results_result.get("results_saved", 0)
+            stats["races_completed"] = results_result.get("races_completed", 0)
 
-        # Step 4: Horses
         if run_horses:
-            # Check how many horses are missing
             with get_connection() as conn:
-                missing = get_unscraped_horses(conn, limit=1000000)  # Get count
-
-            if len(missing) > 0:
-                self._log(f"Resuming Step 4: {len(missing)} horses need profiles")
+                missing = get_unscraped_horses(conn, limit=1_000_000)
+            if missing:
                 horses_result = self._run_batched_step(
                     fetch_horse_profiles, batch_size["horses"], "horses"
                 )
-                stats["horses_saved"] = horses_result["horses_saved"]
+                stats["horses_saved"] = horses_result.get("horses_saved", 0)
 
         return {"success": True, "stats": stats, "error": None}
 
-    def _log_summary(self, stats: dict[str, int]) -> None:
-        """Log final summary statistics."""
+    def _log_summary(self, stats: dict[str, Any]) -> None:
+        """Log a short workflow summary."""
         self._log(f"Fixtures saved:      {stats['fixtures_saved']:,}")
         self._log(f"Fixtures completed:  {stats['fixtures_completed']:,}")
         self._log(f"Races saved:         {stats['races_saved']:,}")
@@ -431,38 +274,29 @@ class ScraperService:
         if stats.get("horses_saved"):
             self._log(f"Horses saved:        {stats['horses_saved']:,}")
 
-    def scrape_single_date(self, date: str, **kwargs) -> dict[str, Any]:
-        """Convenience method for a single date."""
-        return self.scrape_date_range(dates=[date], **kwargs)
-
-    def scrape_days_back(self, days_back: int, **kwargs) -> dict[str, Any]:
-        """Scrape last N days (inclusive)."""
+    def scrape_days_back(self, days_back: int, **kwargs: Any) -> dict[str, Any]:
+        """Run workflow for last N days (inclusive)."""
         if days_back < 0:
             raise ValueError("days_back must be >= 0")
 
-        today = datetime.now().date()
+        today = datetime.now(UTC).date()
         start_date = today - timedelta(days=days_back)
 
-        dates = []
+        dates: list[str] = []
         current = start_date
         while current <= today:
             dates.append(current.strftime("%Y-%m-%d"))
             current += timedelta(days=1)
 
-        self._log(f"Scraping {len(dates)} days: {dates[0]} to {dates[-1]}")
         return self.scrape_date_range(dates=dates, **kwargs)
 
     @staticmethod
     def get_progress() -> dict[str, Any]:
-        """
-        Get current scraping progress from database.
-        """
+        """Return scraping progress counters from the database."""
         with get_connection() as conn:
-            stats = get_scraping_stats(conn)
+            return get_scraping_stats(conn)
 
-        return stats
-
-    def _report_progress(self, event: str, data: dict) -> None:
-        """Callback for progress updates if provided."""
+    def _report_progress(self, event: str, data: dict[str, Any]) -> None:
+        """Emit progress callback event."""
         if self.progress_callback:
             self.progress_callback(event, data)

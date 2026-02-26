@@ -1,8 +1,9 @@
 # management/commands/scrape_races.py
 from django.core.management.base import BaseCommand
-from scraper.service import ScraperService
 from django.utils import timezone
+
 from api.models import ScrapeJob
+from scraper.service import ScraperService
 
 
 class Command(BaseCommand):
