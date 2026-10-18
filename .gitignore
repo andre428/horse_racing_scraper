@@ -62,3 +62,8 @@ htmlcov/
 /analyze_races_simple.py
 /help_docs/
 /main_db/
+
+# Stray files flagged for repo removal (backlog: move tank_stuff.py out, delete the other two)
+/git.error
+/dirty_buffer.py
+/tank_stuff.py

@@ -32,6 +32,7 @@ Two cooperating parts:
 
 - Python 3.14+ (see `pyproject.toml`)
 - [uv](https://docs.astral.sh/uv/) for dependency and virtualenv management
+- The `.python-version` file pins the interpreter, so every clone gets the same Python
 - Redis — only needed for scrape jobs launched from the web UI (Celery broker)
 
 ## Install
@@ -100,4 +101,23 @@ uv run celery -A horseracer worker
 
 ```bash
 uv run pytest
+```
+
+## Versioning
+
+The version lives in two places — `pyproject.toml` and `horseracer/__init__.py` (`__version__`) —
+and is kept in sync by [bump-my-version](https://github.com/callowayproject/bump-my-version):
+
+```bash
+uv run bump-my-version bump patch   # 0.8.12 → 0.8.13 — bug fixes
+uv run bump-my-version bump minor   # 0.8.12 → 0.9.0  — new features
+uv run bump-my-version bump major   # 0.8.12 → 1.0.0  — breaking changes
+```
+
+A bump rewrites both version files, creates a commit (`Bump version: …`) and a
+git tag (`v{new_version}`). It requires a clean working tree, since it commits.
+Push the branch and tag together:
+
+```bash
+git push --follow-tags
 ```
