@@ -1,0 +1,124 @@
+{% extends "api/base.html" %}
+{% load static %}
+
+{% block title %}Zarządzanie Bazami - Racing Data Hub{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <div class="breadcrumbs-container">
+        <ul class="breadcrumbs-list">
+            <li class="breadcrumb-item">
+                <a href="/api/"><i class="fas fa-home"></i> Skaner</a>
+            </li>
+            <li class="breadcrumb-item">
+                <i class="fas fa-chevron-right breadcrumb-separator"></i>
+            </li>
+            <li class="breadcrumb-item active">
+                Zarządzanie Bazami
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-database"></i>
+        Zarządzanie Bazami Danych
+    </h1>
+    <p class="text-muted">Przeglądaj statystyki i zarządzaj danymi w bazach PostgreSQL i SQLite</p>
+</div>
+
+<!-- PostgreSQL Section -->
+<div class="section danger-section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-triangle-exclamation"></i>
+            Baza Główna (PostgreSQL)
+        </h2>
+    </div>
+
+    <div class="warning-box">
+        <strong><i class="fas fa-exclamation-triangle"></i> UWAGA:</strong>
+        Ta operacja jest nieodwracalna! Użyj tylko w celach testowych.
+        Zostaną usunięte wszystkie dane z bazy głównej.
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-map-marker-alt"></i> Miejsca wyścigów</div>
+            <div class="stat-value">{{ pg_stats.fixtures|default:0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-flag-checkered"></i> Wyścigi</div>
+            <div class="stat-value">{{ pg_stats.races|default:0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-horse"></i> Konie</div>
+            <div class="stat-value">{{ pg_stats.horses|default:0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-chart-line"></i> Występy</div>
+            <div class="stat-value">{{ pg_stats.performances|default:0 }}</div>
+        </div>
+        <div class="stat-card highlight">
+            <div class="stat-label"><i class="fas fa-database"></i> Suma rekordów</div>
+            <div class="stat-value">{{ pg_stats.total|default:0 }}</div>
+        </div>
+    </div>
+
+    <button id="wipe-pg-btn" class="btn btn-danger btn-lg" data-tooltip="Usuń wszystkie dane z PostgreSQL">
+        <i class="fas fa-trash"></i>
+        WYCZYŚĆ BAZĘ POSTGRESQL
+    </button>
+</div>
+
+<!-- SQLite Buffer Section -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-box"></i>
+            Bufor Tymczasowy (SQLite)
+        </h2>
+    </div>
+
+    <p class="text-muted mb-lg">
+        <i class="fas fa-info-circle"></i>
+        Bufor przechowuje dane pobrane ze źródła przed ich importem do bazy głównej.
+        Wyczyszczenie bufora usuwa dane tymczasowe, ale nie wpływa na bazę główną.
+    </p>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-map-marker-alt"></i> Miejsca wyścigów</div>
+            <div class="stat-value">{{ sqlite_stats.fixtures|default:0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-flag-checkered"></i> Wyścigi</div>
+            <div class="stat-value">{{ sqlite_stats.races|default:0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-horse"></i> Konie</div>
+            <div class="stat-value">{{ sqlite_stats.horses|default:0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-chart-line"></i> Występy</div>
+            <div class="stat-value">{{ sqlite_stats.performances|default:0 }}</div>
+        </div>
+        <div class="stat-card highlight">
+            <div class="stat-label"><i class="fas fa-box"></i> Suma rekordów</div>
+            <div class="stat-value">{{ sqlite_stats.total|default:0 }}</div>
+        </div>
+    </div>
+
+    <button id="wipe-sqlite-btn" class="btn btn-warning btn-lg" data-tooltip="Wyczyść tymczasowy bufor danych">
+        <i class="fas fa-broom"></i>
+        Wyczyść Bufor SQLite
+    </button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'api/js/database.js' %}"></script>
+{% endblock %}

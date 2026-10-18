@@ -1,0 +1,196 @@
+{% extends "api/base.html" %}
+{% load static %}
+
+{% block title %}Raporty - Racing Data Hub{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <div class="breadcrumbs-container">
+        <ul class="breadcrumbs-list">
+            <li class="breadcrumb-item">
+                <a href="/api/"><i class="fas fa-home"></i> Skaner</a>
+            </li>
+            <li class="breadcrumb-item">
+                <i class="fas fa-chevron-right breadcrumb-separator"></i>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="/api/browse/">Przeglądaj</a>
+            </li>
+            <li class="breadcrumb-item">
+                <i class="fas fa-chevron-right breadcrumb-separator"></i>
+            </li>
+            <li class="breadcrumb-item active">
+                Raporty
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-chart-bar"></i>
+        Generuj Raporty
+    </h1>
+    <p class="text-muted">Twórz zaawansowane analizy i eksportuj do CSV</p>
+</div>
+
+<!-- Report Type Selection -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-list-check"></i>
+            Wybierz Typ Raportu
+        </h2>
+    </div>
+
+    <div class="report-type-grid">
+        <label class="report-option active">
+            <input type="radio" name="report_type" value="winning_positions" checked>
+            <div class="option-content">
+                <div class="option-title">
+                    <i class="fas fa-trophy"></i>
+                    Wygrywające Pozycje Startowe
+                </div>
+                <div class="option-desc">
+                    Analiza które numery startowe najczęściej kończą w pierwszej czwórce
+                </div>
+            </div>
+        </label>
+
+        <label class="report-option disabled">
+            <input type="radio" name="report_type" value="placeholder1" disabled>
+            <div class="option-content">
+                <div class="option-title">
+                    <i class="fas fa-chart-line"></i>
+                    Raport Placeholder 1
+                </div>
+                <div class="option-desc">Wkrótce dostępne...</div>
+            </div>
+        </label>
+
+        <label class="report-option disabled">
+            <input type="radio" name="report_type" value="placeholder2" disabled>
+            <div class="option-content">
+                <div class="option-title">
+                    <i class="fas fa-chart-pie"></i>
+                    Raport Placeholder 2
+                </div>
+                <div class="option-desc">Wkrótce dostępne...</div>
+            </div>
+        </label>
+    </div>
+</div>
+
+<!-- Report Filters -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-filter"></i>
+            Filtry Raportu
+        </h2>
+    </div>
+
+    <div class="grid grid-2">
+        <!-- Date Range -->
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-calendar-days"></i>
+                Okres (Od - Do)
+            </label>
+            <div class="input-group">
+                <input
+                        type="date"
+                        id="date-from"
+                        class="form-control"
+                        required
+                        data-tooltip="Data początkowa - wcześniejsza data"
+                >
+                <span style="padding: 10px; color: #666;">→</span>
+                <input
+                        type="date"
+                        id="date-to"
+                        class="form-control"
+                        required
+                        data-tooltip="Data końcowa - późniejsza data"
+                >
+            </div>
+            <small class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                Wybierz zakres: od wcześniejszej daty (np. 2025-12-01)
+                do późniejszej daty (np. 2026-02-14)
+            </small>
+        </div>
+
+        <!-- Course -->
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-location-dot"></i>
+                Tor
+            </label>
+            <select id="course-select" class="form-control">
+                <option value="">Wszystkie tory</option>
+                {% for course in available_courses %}
+                <option value="{{ course }}">{{ course }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Distance Range -->
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-ruler"></i>
+                Dystans (jardy)
+            </label>
+            <div class="input-group">
+                <input
+                        type="number"
+                        id="min-distance"
+                        class="form-control"
+                        placeholder="Minimum"
+                        data-tooltip="Minimalny dystans - mniejsza wartość"
+                >
+                <span style="padding: 10px; color: #666;">→</span>
+                <input
+                        type="number"
+                        id="max-distance"
+                        class="form-control"
+                        placeholder="Maximum"
+                        data-tooltip="Maksymalny dystans - większa wartość"
+                >
+            </div>
+            <small class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                Zakres: od mniejszego dystansu (np. 1000) do większego (np. 1400)
+            </small>
+        </div>
+    </div>
+
+    <button id="generate-btn" class="btn btn-primary btn-lg" data-tooltip="Generuj raport z wybranych danych">
+        <i class="fas fa-chart-bar"></i>
+        Generuj Raport
+    </button>
+</div>
+
+<!-- Report Results -->
+<div id="results-section" class="section hidden">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-table"></i>
+            Wyniki Raportu
+        </h2>
+        <button id="export-csv-btn" class="btn btn-secondary" data-tooltip="Pobierz raport jako plik CSV">
+            <i class="fas fa-download"></i>
+            Eksportuj do CSV
+        </button>
+    </div>
+
+    <div id="report-header" class="report-header-info"></div>
+    <div id="report-table-container"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'api/js/reports.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "api/base.html" %}
+{% load static %}
+
+{% block title %}Przeglądaj Dane - Racing Data Hub{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <div class="breadcrumbs-container">
+        <ul class="breadcrumbs-list">
+            <li class="breadcrumb-item">
+                <a href="/api/"><i class="fas fa-home"></i> Skaner</a>
+            </li>
+            <li class="breadcrumb-item">
+                <i class="fas fa-chevron-right breadcrumb-separator"></i>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="/api/database/">Bazy Danych</a>
+            </li>
+            <li class="breadcrumb-item">
+                <i class="fas fa-chevron-right breadcrumb-separator"></i>
+            </li>
+            <li class="breadcrumb-item active">
+                Przeglądaj Dane
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-search"></i>
+        Przeglądaj Dane
+    </h1>
+    <p class="text-muted">Wyszukuj konie i wyścigi, przeglądaj szczegółowe informacje</p>
+</div>
+
+<!-- Horse Search Section -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-horse"></i>
+            Wyszukaj Konia
+        </h2>
+    </div>
+
+    <p class="text-muted mb-md">Wpisz nazwę konia aby zobaczyć jego historię wyścigów</p>
+
+    <div class="search-box">
+        <input
+            type="text"
+            id="horse-search-input"
+            placeholder="Wpisz nazwę konia (min. 2 znaki)..."
+            class="form-control"
+            data-tooltip="Szukaj konia po nazwie"
+        >
+        <button id="horse-search-btn" class="btn btn-primary">
+            <i class="fas fa-search"></i>
+            Szukaj
+        </button>
+    </div>
+
+    <div id="horse-results"></div>
+</div>
+
+<!-- Race Search Section -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-flag-checkered"></i>
+            Wyszukaj Wyścigi po Dacie
+        </h2>
+    </div>
+
+    <p class="text-muted mb-md">Wybierz datę aby zobaczyć wyścigi z tego dnia</p>
+
+    <div class="search-box">
+        <input
+            type="date"
+            id="race-date-input"
+            class="form-control"
+            data-tooltip="Wybierz datę wyścigu"
+        >
+        <button id="race-search-btn" class="btn btn-primary">
+            <i class="fas fa-calendar"></i>
+            Szukaj
+        </button>
+    </div>
+
+    <div id="race-results"></div>
+</div>
+
+<!-- Race Detail Modal -->
+<div id="race-detail-modal" class="modal">
+    <div class="modal-content" style="max-width: 1000px;">
+        <div class="modal-header">
+            <h2 class="modal-title">Szczegóły Wyścigu</h2>
+            <span class="modal-close"><i class="fas fa-times"></i></span>
+        </div>
+        <div class="modal-body">
+            <div id="race-detail-content"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'api/js/browse.js' %}"></script>
+{% endblock %}

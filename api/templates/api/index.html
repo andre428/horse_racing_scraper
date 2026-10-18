@@ -1,0 +1,374 @@
+{% extends "api/base.html" %}
+{% load static %}
+
+{% block title %}Skaner Wyścigów - Racing Data Hub{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <div class="breadcrumbs-container">
+        <ul class="breadcrumbs-list">
+            <li class="breadcrumb-item active">
+                <i class="fas fa-home"></i> Skaner Danych
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-horse-head"></i>
+        Skaner Danych Wyścigów Konnych
+    </h1>
+    <p class="text-muted">Pobieraj i importuj dane wyścigowe z wybranego zakresu dat i filtrami</p>
+</div>
+
+<!-- Preset Selector -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-star"></i>
+            Szybki Start
+        </h2>
+    </div>
+    <div class="form-group">
+        <label class="form-label">
+            <i class="fas fa-list"></i>
+            Wybierz preset
+        </label>
+        <select id="preset-selector" class="form-control">
+            <option value="">-- Wybierz gotową konfigurację --</option>
+            {% for preset in presets %}
+            <option value="{{ preset.id }}">
+                {{ preset.name }}
+                {% if preset.description %} - {{ preset.description }}{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+        <small class="form-hint">Lub skonfiguruj filtry ręcznie poniżej</small>
+    </div>
+</div>
+
+<!-- Main Form -->
+<form id="scrape-form">
+    {% csrf_token %}
+
+    <!-- Days Back -->
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-calendar-days"></i>
+                Zakres Dat
+            </h2>
+        </div>
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-clock"></i>
+                Dni do pobrania
+            </label>
+            <input
+                type="number"
+                id="days-back"
+                name="days_back"
+                min="0"
+                max="1095"
+                value="7"
+                class="form-control"
+                required
+                data-tooltip="0 = tylko dzisiaj, 365 = ostatni rok"
+            >
+            <small class="form-hint">Maksymalnie 1095 dni (3 lata)</small>
+        </div>
+    </div>
+
+    <!-- Fixture Types -->
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-layer-group"></i>
+                Typy Wyścigów
+            </h2>
+        </div>
+        <div class="checkbox-grid">
+            <div class="form-check">
+                <input type="checkbox" id="flat" name="fixture_types" value="FLAT" checked>
+                <label for="flat">
+                    <i class="fas fa-flag"></i>
+                    Wyścigi płaskie
+                </label>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" id="jump" name="fixture_types" value="JUMP">
+                <label for="jump">
+                    <i class="fas fa-person-running"></i>
+                    Skoki (National Hunt)
+                </label>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" id="awt" name="fixture_types" value="AWT">
+                <label for="awt">
+                    <i class="fas fa-sun"></i>
+                    Całoroczne (AWT)
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Course Selection -->
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-location-dot"></i>
+                Tory Wyścigowe
+            </h2>
+        </div>
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-magnifying-glass"></i>
+                Wyszukaj tory
+            </label>
+            <input
+                type="text"
+                id="course-search"
+                placeholder="Wpisz nazwę toru..."
+                class="form-control"
+                autocomplete="off"
+                data-tooltip="Zacznij wpisywać aby znaleźć tor"
+            >
+            <div id="course-suggestions" class="suggestions-box hidden"></div>
+        </div>
+        <div id="selected-courses" class="mt-sm"></div>
+        <small class="form-hint">Pozostaw puste aby pobrać wszystkie tory</small>
+    </div>
+
+    <!-- Distance Range -->
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-ruler"></i>
+                Zakres Dystansu
+            </h2>
+        </div>
+        <div class="input-group">
+            <div class="form-group">
+                <label class="form-label">Minimum (jardy)</label>
+                <input type="number" id="minimum-distance" class="form-control" placeholder="np. 1000">
+                <small class="form-hint">5f = 1000y, 6f = 1200y</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Maximum (jardy)</label>
+                <input type="number" id="maximum-distance" class="form-control" placeholder="np. 1400">
+                <small class="form-hint">7f = 1400y, 1m = 1600y</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Race Classes -->
+    <div class="section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-trophy"></i>
+                Klasy Wyścigów
+            </h2>
+        </div>
+        <div class="checkbox-grid">
+            {% for class_num in "1234567" %}
+            <div class="form-check">
+                <input type="checkbox" id="class-{{ class_num }}" name="race_classes" value="{{ class_num }}">
+                <label for="class-{{ class_num }}">Klasa {{ class_num }}</label>
+            </div>
+            {% endfor %}
+        </div>
+        <small class="form-hint">Pozostaw odznaczone aby uwzględnić wszystkie klasy</small>
+    </div>
+
+    <!-- Submit Section -->
+    <div class="section">
+        <div class="btn-group">
+            <button type="submit" id="submit-btn" class="btn btn-primary btn-lg" data-tooltip="Rozpocznij pobieranie danych">
+                <i class="fas fa-play"></i>
+                Rozpocznij Skanowanie
+            </button>
+            <button type="button" id="stop-btn" class="btn btn-danger btn-lg hidden" data-tooltip="Zatrzymaj aktywne skanowanie">
+                <i class="fas fa-stop"></i>
+                STOP
+            </button>
+            <button type="button" id="save-preset-btn" class="btn btn-secondary" data-tooltip="Zapisz obecną konfigurację jako preset">
+                <i class="fas fa-save"></i>
+                Zapisz Preset
+            </button>
+            <button type="button" id="reset-btn" class="btn btn-outline" data-tooltip="Wyczyść formularz">
+                <i class="fas fa-redo"></i>
+                Resetuj
+            </button>
+        </div>
+    </div>
+</form>
+
+<!-- Progress Container -->
+<div id="progress-container" class="section hidden">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-tasks"></i>
+            Postęp Skanowania
+        </h2>
+    </div>
+
+    <!-- Activity Indicator -->
+    <div class="activity-indicator">
+        <div class="spinner"></div>
+        <div class="activity-text">
+            <h4 id="status-message">Inicjalizacja...</h4>
+            <p class="text-muted">Przygotowywanie skanera...</p>
+        </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="steps">
+    <div class="step" data-step="1">
+        <div class="step-icon"><i class="fas fa-map-marker-alt"></i></div>
+        <div class="step-label">Miejsca wyścigów</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Skanowanie miejsc</small>
+    </div>
+
+    <div class="step" data-step="2">
+        <div class="step-icon"><i class="fas fa-flag-checkered"></i></div>
+        <div class="step-label">Wyścigi</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Skanowanie wyścigów</small>
+    </div>
+
+    <div class="step" data-step="3">
+        <div class="step-icon"><i class="fas fa-chart-line"></i></div>
+        <div class="step-label">Wyniki</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Skanowanie wyników</small>
+    </div>
+
+    <div class="step" data-step="4">
+        <div class="step-icon"><i class="fas fa-horse"></i></div>
+        <div class="step-label">Dane koni</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Skanowanie koni</small>
+    </div>
+
+    <div class="step" data-step="5">
+        <div class="step-icon"><i class="fas fa-database"></i></div>
+        <div class="step-label">Transfer</div>
+        <div class="step-value">-</div>
+        <small class="step-desc">Import do bazy</small>
+    </div>
+</div>
+</div>
+
+<!-- Recent Jobs -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-history"></i>
+            Ostatnie Zadania
+        </h2>
+    </div>
+
+    {% if recent_jobs %}
+    <div class="table-wrapper">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Zakres</th>
+                    <th>Filtry</th>
+                    <th>Data</th>
+                    <th>Statystyki</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in recent_jobs %}
+                <tr>
+                    <td>
+                        <span class="badge
+                            {% if job.status == 'pending' %}badge-warning
+                            {% elif job.status == 'running' %}badge-info
+                            {% elif job.status == 'completed' %}badge-success
+                            {% elif job.status == 'failed' %}badge-danger
+                            {% endif %}">
+                            {% if job.status == 'pending' %}
+                                <i class="fas fa-clock"></i> Oczekujące
+                            {% elif job.status == 'running' %}
+                                <i class="fas fa-spinner fa-spin"></i> W trakcie
+                            {% elif job.status == 'completed' %}
+                                <i class="fas fa-check"></i> Ukończone
+                            {% elif job.status == 'failed' %}
+                                <i class="fas fa-times"></i> Błąd
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td><strong>{{ job.days_back }} dni</strong></td>
+                    <td class="text-muted">
+                        {% if job.filters.courses %}
+                            <i class="fas fa-location-dot"></i> {{ job.filters.courses|length }} torów
+                        {% endif %}
+                        {% if job.filters.race_classes %}
+                            <i class="fas fa-trophy"></i> Klasy: {{ job.filters.race_classes|join:", " }}
+                        {% endif %}
+                    </td>
+                    <td>{{ job.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if job.stats %}
+                            <i class="fas fa-map-marker-alt"></i> {{ job.stats.fixtures_saved|default:0 }}
+                            <i class="fas fa-flag-checkered"></i> {{ job.stats.races_saved|default:0 }}
+                            <i class="fas fa-chart-line"></i> {{ job.stats.performances_saved|default:0 }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted">Brak zadań. Rozpocznij pierwsze skanowanie!</p>
+    {% endif %}
+</div>
+
+<!-- Suggestions Box Styles -->
+<style>
+.suggestions-box {
+    position: absolute;
+    background: white;
+    border: 2px solid var(--color-border);
+    border-top: none;
+    border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+    max-height: 250px;
+    overflow-y: auto;
+    width: 100%;
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+}
+
+.suggestion-item {
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background: var(--color-bg-body);
+    color: var(--color-accent);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Pass courses data to JavaScript
+    window.COURSES_DATA = {{ available_courses|safe }};
+</script>
+<script src="{% static 'api/js/scraper.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,188 @@
+[project]
+name = "horse-racing-data-mixer"
+version = "0.8.12"
+description = "Horse racing data scraper with Django integration"
+readme = "README.md"
+requires-python = ">=3.14"   # drop to ">=3.13" if a dep lacks 3.14 wheels
+license = "MIT"              # PEP 639 SPDX string (old table form deprecated)
+authors = [{ name = "zaafiel428", email = "rzuckasto@gmail.com" }]
+keywords = ["scraper", "horseracing", "etl", "django"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.14",
+    "Framework :: Django :: 5.2",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+
+dependencies = [
+    "django>=5.2.9,<6.0",
+    "psycopg2-binary>=2.9.10",
+    "requests>=2.32.5",
+    "playwright>=1.57.0",
+    # Imported at module load, so not actually optional:
+    # celery <- api/tasks.py, beautifulsoup4 <- scraper/step5_sections.py
+    "beautifulsoup4>=4.14",
+    "celery>=5.4",
+    "redis>=5.0",  # celery's redis broker transport
+]
+
+[project.optional-dependencies]
+prod = ["gunicorn>=23.0", "whitenoise>=6.8", "sentry-sdk>=2.0"]
+
+[project.urls]
+Homepage = "https://github.com/andre428/horse_racing_scraper"
+Repository = "https://github.com/andre428/horse_racing_scraper"
+
+# CHANGED: dev deps are now a PEP 735 dependency-group, not an extra
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-django>=4.11",
+    "pytest-asyncio>=1.3",
+    "pytest-cov>=7.0",
+    "ruff>=0.14",
+    "basedpyright>=1.36",
+    "mypy>=1.14",           # ADDED: plugin below was configured but never installed
+    "django-stubs>=5.1",    # ADDED: required by mypy_django_plugin
+    "types-requests",       # ADDED: stubs for requests
+    "celery-types>=0.26.0", # MOVED: typing stubs are dev-only
+    "ipython>=9.8",
+    "django-debug-toolbar>=4.4",
+    "django-extensions>=3.2",
+    "bump-my-version>=1.2.7",
+]
+
+[tool.uv]
+package = false  # virtual project: service repo, not a library
+# (removing [build-system] already implies this; explicit for clarity)
+
+# ============================================================================
+# Ruff
+# ============================================================================
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+indent-width = 4
+extend-exclude = ["migrations", "cache", "*.db"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "B", "I", "N", "UP", "S", "C4",
+    "DTZ", "T20", "RET", "SIM",
+    "C901",  # ADDED: enables the max-complexity setting below
+]
+# NOTE: S101/T201 ignored globally makes the tests/* ignores redundant.
+# Alternative: remove them here, keep per-file — prints/asserts then flagged in prod code.
+ignore = ["E501", "S101", "T201"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["S101", "T201"]
+"*/migrations/*" = ["E501", "N806"]
+"test_*.py" = ["S101", "T201"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "horseracer", "scraper"]
+combine-as-imports = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = true
+line-ending = "auto"
+
+# ============================================================================
+# Basedpyright (editor) / mypy + django-stubs (CI)
+# ============================================================================
+[tool.basedpyright]
+pythonVersion = "3.14"
+typeCheckingMode = "standard"
+include = ["scraper", "tests", "test_pipeline.py"]
+exclude = [
+    "**/__pycache__", "**/.venv", "**/.pytest_cache",
+    "**/build", "**/dist", "**/cache",
+]
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true
+reportGeneralTypeIssues = true
+reportOptionalMemberAccess = "warning"
+reportUnknownMemberType = "none"
+
+[tool.mypy]
+plugins = ["mypy_django_plugin.main"]
+mypy_path = ["."]              # ADDED: resolve flat top-level packages
+explicit_package_bases = true  # ADDED: standard for Django layouts
+
+[tool.django-stubs]
+django_settings_module = "horseracer.settings"  # TODO: verify against manage.py
+
+# ============================================================================
+# Pytest
+# ============================================================================
+[tool.pytest.ini_options]
+minversion = "9.0"
+DJANGO_SETTINGS_MODULE = "horseracer.settings"  # ADDED — pytest-django breaks without it
+pythonpath = ["."]                             # ADDED — makes project importable
+testpaths = ["tests", "test_pipeline.py"]      # FIXED: test_pipeline.py never ran before
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"  # ADDED: silences pytest-asyncio warning
+addopts = ["-ra", "--strict-markers", "--strict-config", "-v"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "requires_network: marks tests requiring internet",
+    "requires_playwright: marks tests requiring browser",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+# ============================================================================
+# Coverage / versioning
+# ============================================================================
+[tool.coverage.run]
+source = ["scraper"]
+omit = [
+    "*/tests/*", "**/test_*.py", "**/__pycache__/*",
+    "**/conftest.py", "*/migrations/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@overload",
+]
+
+[tool.bumpversion]
+current_version = "0.8.12"
+commit = true
+tag = true
+tag_name = "v{new_version}"
+tag_message = "Release {new_version}"
+message = "Bump version: {current_version} → {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'

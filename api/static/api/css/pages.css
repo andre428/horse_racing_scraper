@@ -1,0 +1,201 @@
+/**
+ * Page-Specific Styles
+ */
+
+/* ============================================
+   SCRAPER PAGE
+   ============================================ */
+.preset-selector {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-sm);
+}
+
+.activity-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    background: var(--color-bg-body);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--space-lg);
+}
+
+.activity-text h4 {
+    margin: 0 0 var(--space-xs) 0;
+    font-size: var(--font-size-lg);
+}
+
+.activity-text p {
+    margin: 0;
+    color: var(--color-text-muted);
+}
+
+/* ============================================
+   DATABASE PAGE
+   ============================================ */
+.danger-section {
+    border: 3px solid var(--color-danger);
+}
+
+.warning-box {
+    background: #fff3cd;
+    border-left: 4px solid var(--color-warning);
+    padding: var(--space-md);
+    border-radius: var(--border-radius-sm);
+    margin: var(--space-md) 0;
+}
+
+.warning-box strong {
+    color: #856404;
+}
+
+/* ============================================
+   BROWSE PAGE
+   ============================================ */
+.search-box {
+    display: flex;
+    gap: var(--space-sm);
+    margin: var(--space-lg) 0;
+}
+
+.search-box .form-control {
+    flex: 1;
+}
+
+.horse-card,
+.race-card {
+    background: var(--color-bg-body);
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.horse-header {
+    border-bottom: 2px solid var(--color-border);
+    padding-bottom: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.horse-name {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.race-item {
+    background: var(--color-bg-white);
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--space-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    margin-bottom: var(--space-md);
+}
+
+.race-item:hover {
+    border-color: var(--color-accent);
+    background: #fff5f7;
+    transform: translateX(5px);
+}
+
+.race-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.race-details {
+    display: flex;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* ============================================
+   REPORTS PAGE
+   ============================================ */
+.report-type-grid {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.report-option {
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--space-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.report-option input[type="radio"] {
+    display: none;
+}
+
+.report-option.active {
+    border-color: var(--color-accent);
+    background: #fff5f7;
+}
+
+.report-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.option-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-primary);
+    margin-bottom: var(--space-xs);
+}
+
+.option-desc {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.report-header-info {
+    background: var(--color-bg-body);
+    border-left: 4px solid var(--color-accent);
+    padding: var(--space-lg);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--space-lg);
+}
+
+.report-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+}
+
+.report-info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.report-info-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-weight: 500;
+    margin-bottom: var(--space-xs);
+}
+
+.report-info-value {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.top-performer {
+    background: #fff3cd !important;
+}
