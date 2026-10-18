@@ -1,0 +1,29 @@
+On branch main
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	git.error
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+
+main
+
+
+origin	git@github.com:andre428/horse_racing_scraper.git (fetch)
+origin	git@github.com:andre428/horse_racing_scraper.git (push)
+
+
+* 628cf90 (HEAD -> main) Reinstate project: uv-based setup, dependency fixes, README rewrite
+* 43c0a6b (tag: v0.8.11, origin/main, origin/HEAD) Bump version: 0.8.10 → 0.8.11
+* c5017a7 Configure bump-my-version
+* 276cbff scraper refactors
+* 7413882 reworked frontend, working filters and flow
+* 8428d07 minor corrections, reformat, etc...
+* be32c6a v0.6.5, steps 1-4 done, basic frontend working
+* ee611e2 Readme update
+*   7567582 reworked databases, migrations, transfers and tasks
+|\  
+| * c6e4313 Create README.md
+* | 8273299 reworked databases, migrations, transfers and tasks
+|/  
+* e1d19c6 Base structure
